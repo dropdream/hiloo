@@ -19,6 +19,7 @@ export interface DocumentBridge {
   open(): Promise<DocumentResult>
   save(asCopy?: boolean): Promise<DocumentResult>
   update(id: string, content: string): Promise<DocumentResult>
+  imageSource(id: string, source: string): Promise<string | null>
   onDocument(callback: (document: DocumentSnapshot) => void): () => void
   onBusy(callback: (busy: boolean) => void): () => void
   onError(callback: (message: string) => void): () => void

@@ -72,6 +72,7 @@ export function App() {
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
+      if (event.target instanceof Element && event.target.closest('dialog')) return
       if (!event.ctrlKey || event.altKey || event.isComposing) return
       const key = event.key.toLowerCase()
       if (key !== 'o' && key !== 's') return
@@ -109,10 +110,16 @@ export function App() {
       <span className={styles.filename}>{document?.name ?? 'hiloo'}</span>
       <span className={styles.status} role="status"><span className={styles.dot} data-dirty={document?.dirty || undefined} />{status}</span>
     </header>
-    <EditorToolbar busy={busy} ready={ready} selection={selection} onOpen={() => { void run('open') }} onSave={(copy) => { void run('save', copy) }} onFormat={(action, level) => controller.current?.format(action, level)} onFocusEditor={() => controller.current?.focus()} />
+    <EditorToolbar key={document?.id} busy={busy} ready={ready} selection={selection}
+      onOpen={() => { void run('open') }} onSave={(copy) => { void run('save', copy) }}
+      onFormat={(action, level) => controller.current?.format(action, level)} onFocusEditor={() => controller.current?.focus()}
+      onInsertTable={(rows, columns) => controller.current?.insertTable(rows, columns) ?? false}
+      onTable={(action) => controller.current?.table(action) ?? false}
+      onLink={(value) => controller.current?.setLink(value) ?? false} onRemoveLink={() => controller.current?.removeLink() ?? false}
+      onImage={(value) => controller.current?.setImage(value) ?? false} onRemoveImage={() => controller.current?.removeImage() ?? false} />
     {error ? <div role="alert" className={styles.error}>{error}<button aria-label="Cerrar aviso" onClick={() => setError('')}>Cerrar</button></div> : null}
     <main className={styles.workspace} aria-busy={busy}>
-      {document ? <MarkdownEditor key={document.id} source={document.content} savedSource={document.savedContent} onReady={(next) => { controller.current = next; next.setEditable(!locked.current); setReady(true); next.focus() }} onChange={changed} onSelection={setSelection} onError={setError} /> : null}
+      {document ? <MarkdownEditor key={document.id} documentId={document.id} source={document.content} savedSource={document.savedContent} onReady={(next) => { controller.current = next; next.setEditable(!locked.current); setReady(true); next.focus() }} onChange={changed} onSelection={setSelection} onError={setError} /> : null}
     </main>
   </div>
 }
