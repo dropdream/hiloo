@@ -6,6 +6,7 @@ const api: DocumentBridge = {
   open: () => ipcRenderer.invoke('document:open'),
   save: (asCopy = false) => ipcRenderer.invoke('document:save', asCopy),
   update: (id, content) => ipcRenderer.invoke('document:update', id, content),
+  imageSource: (id, source) => ipcRenderer.invoke('document:image-source', id, source),
   onDocument: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, document: DocumentSnapshot) => callback(document)
     ipcRenderer.on('document:changed', listener)

@@ -10,6 +10,22 @@
 .surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { font-size: 1.08em; }
 .surface :global(.hiloo-document strong) { font-weight: 700; }
 .surface :global(.hiloo-document em) { font-style: italic; }
+.surface :global(.hiloo-document del) { text-decoration: line-through; }
+.surface :global(.hiloo-document li[data-item-type="task"]) { position: relative; list-style: none; }
+.surface :global(.hiloo-document li[data-item-type="task"] > input) { position: absolute; left: -1.35em; top: .4em; width: 1em; height: 1em; margin: 0; accent-color: var(--hiloo-accent); cursor: pointer; }
+.surface :global(.hiloo-document li[data-item-type="task"] > input:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 3px; }
+.surface :global(.hiloo-document li[data-checked="true"] > .list-item-content > p) { color: var(--hiloo-muted); }
+.surface :global(.document-table) { max-width: 100%; overflow-x: auto; margin: 1.25em 0; }
+.surface :global(.document-table:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
+.surface :global(.hiloo-document table) { border-collapse: collapse; width: 100%; min-width: calc(var(--table-columns, 1) * 7em); table-layout: fixed; }
+.surface :global(.hiloo-document th), .surface :global(.hiloo-document td) { position: relative; min-width: 48px; border: 1px solid var(--hiloo-border); padding: .55em .7em; vertical-align: top; }
+.surface :global(.hiloo-document th) { background: var(--hiloo-bar); font-weight: 650; }
+.surface :global(.hiloo-document th p), .surface :global(.hiloo-document td p) { margin: 0; }
+.surface :global(.hiloo-document .selectedCell::after) { content: ''; position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--hiloo-accent) 16%, transparent); }
+.surface :global(.document-image) { display: inline-block; max-width: 100%; vertical-align: middle; }
+.surface :global(.document-image img) { max-width: 100%; height: auto; border-radius: 3px; }
+.surface :global(.image-fallback) { display: inline-block; padding: .5em .75em; border: 1px dashed var(--hiloo-border); background: var(--hiloo-bar); color: var(--hiloo-muted); font-size: .85em; }
+.surface :global(.document-image [hidden]) { display: none; }
 .surface :global(.hiloo-document ul), .surface :global(.hiloo-document ol) { padding-left: 1.65em; }
 .surface :global(.hiloo-document li) { padding-left: .3em; margin-bottom: .25em; }
 .surface :global(.hiloo-document li p) { margin-bottom: .25em; }
