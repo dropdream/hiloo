@@ -4,14 +4,14 @@ Editor visual local de Markdown para Windows. La entrega 2 abre, edita y guarda 
 
 ## Uso y alcance actual
 
-- Abrir, Guardar y Guardar como; párrafo, títulos 1–6, negrita, cursiva, listas, citas y deshacer/rehacer.
+- Abrir, Guardar y Guardar como; párrafo, títulos 1–6, negrita, cursiva, tachado, listas, tareas, citas, tablas, imágenes, enlaces y deshacer/rehacer.
 - Atajos: Ctrl+O, Ctrl+S, Ctrl+Mayús+S, Ctrl+B, Ctrl+I, Ctrl+Z y Ctrl+Y. Los formatos también tienen botones con estado activo y tooltips.
 - Estado visible de cambios pendientes, operación en curso, guardado y errores. Abrir/cerrar pide guardar, descartar o cancelar si hay cambios.
 - Guardar detecta modificaciones externas antes de reemplazar el archivo; Guardar como permite conservar la edición en otra ruta.
 - Cada escritura confirma únicamente la revisión guardada. Las ediciones posteriores quedan pendientes; un error de sincronización o tamaño impide guardar silenciosamente una versión anterior.
 - Archivos UTF-8 .md/.markdown de hasta 2 MiB. El original sin editar conserva sus bytes. Al editar se normaliza la sintaxis Markdown admitida; los formatos conocidos fuera del alcance se bloquean, y una conversión visual incompatible se muestra en solo lectura.
 
-No hay autoguardado, recuperación tras cierre forzado, cuadernos, SQLite, asociaciones de archivos, selector de temas ni exportación. Los enlaces existentes se conservan y se muestran sin navegar. El pegado importa texto plano. Los límites, formatos y normalización se detallan en [estilo Markdown](docs/estilo-markdown.md); las variables de interfaz, en [tema de interfaz](docs/tema-interfaz.md). [STACK.md](STACK.md) distingue implementación y proyecto futuro.
+No hay autoguardado, recuperación tras cierre forzado, cuadernos, SQLite, asociaciones de archivos, selector de temas ni exportación. Los enlaces se pueden insertar, editar y quitar; se muestran sin navegar. Las imágenes admiten URL HTTP(S) y rutas relativas dentro de la carpeta del Markdown guardado; los archivos locales no se copian ni se incrustan en el Markdown. El pegado importa texto plano. Los límites, formatos y normalización se detallan en [estilo Markdown](docs/estilo-markdown.md); las variables de interfaz, en [tema de interfaz](docs/tema-interfaz.md). [STACK.md](STACK.md) distingue implementación y proyecto futuro.
 
 ## Requisitos y comandos
 
@@ -50,9 +50,11 @@ El ejecutable necesita toda su carpeta win-unpacked. El paquete local no está f
 | src/renderer/src/*.css | Variables públicas y CSS Modules privados. |
 | tests/ | Pruebas de archivos, editor y ventana en Electron real. |
 
-El renderer mantiene contextIsolation, sandbox y Node deshabilitado. Solo el proceso principal accede a rutas elegidas mediante diálogos; no se expone IO genérico. IPC valida emisor, marco principal, URL y argumentos. La CSP de producción admite scripts propios, bloquea imágenes, objetos y marcos; la navegación y nuevas ventanas están denegadas. React Refresh admite scripts inline solo en desarrollo.
+El renderer mantiene contextIsolation, sandbox y Node deshabilitado. El proceso principal accede a documentos elegidos mediante diálogos y resuelve imágenes raster dentro de su carpeta, comprobando la ruta real, el tamaño y la firma del archivo; no se expone IO genérico. IPC valida emisor, marco principal, URL y argumentos. La CSP de producción admite scripts propios e imágenes HTTP(S)/data, bloquea objetos y marcos; la navegación y nuevas ventanas están denegadas. React Refresh admite scripts inline solo en desarrollo.
 
 ## Verificación
+
+La ampliación de tablas, imágenes, enlaces, tareas y tachado incluye pruebas de regresión y una [auditoría independiente de tablas e imágenes](docs/auditoria-tablas-imagenes.md). El informe registra los fallos encontrados, las correcciones verificadas y el alcance de las pruebas. Las tablas anchas mantienen columnas legibles con desplazamiento horizontal propio.
 
 Las pruebas usan Electron real y archivos temporales reales: formato, historial, guardar/reabrir, cancelación, guardar al cerrar, conflictos externos, conservación de BOM/CRLF y rechazo de formatos. Comprueban además aislamiento, menú y controles de ventana por API. Los resultados de diálogos nativos se simulan desde el proceso principal para hacer reproducibles las decisiones; no se acreditan clics físicos en esos diálogos ni Windows Snap.
 
