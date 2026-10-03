@@ -1,0 +1,27 @@
+.surface { max-width: var(--hiloo-document-width); margin: 0 auto; padding: 40px 48px 96px; min-height: 100%; }
+.surface :global(.hiloo-document) { min-height: calc(100vh - 220px); outline: none; color: var(--hiloo-document-text); font: var(--hiloo-document-size)/var(--hiloo-document-line-height) var(--hiloo-document-font); overflow-wrap: anywhere; caret-color: var(--hiloo-accent); }
+.surface :global(.hiloo-document:focus-visible) { outline: none; }
+.surface :global(.hiloo-document > :first-child) { margin-top: 0; }
+.surface :global(.hiloo-document p) { margin: 0 0 1em; }
+.surface :global(.hiloo-document h1), .surface :global(.hiloo-document h2), .surface :global(.hiloo-document h3), .surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { font-family: var(--hiloo-ui-font); font-weight: 650; line-height: 1.25; margin: 1.35em 0 .55em; letter-spacing: -.025em; }
+.surface :global(.hiloo-document h1) { font-size: 2em; }
+.surface :global(.hiloo-document h2) { font-size: 1.55em; }
+.surface :global(.hiloo-document h3) { font-size: 1.25em; }
+.surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { font-size: 1.08em; }
+.surface :global(.hiloo-document strong) { font-weight: 700; }
+.surface :global(.hiloo-document em) { font-style: italic; }
+.surface :global(.hiloo-document ul), .surface :global(.hiloo-document ol) { padding-left: 1.65em; }
+.surface :global(.hiloo-document li) { padding-left: .3em; margin-bottom: .25em; }
+.surface :global(.hiloo-document li p) { margin-bottom: .25em; }
+.surface :global(.hiloo-document li::marker) { color: var(--hiloo-muted); }
+.surface :global(.hiloo-document blockquote) { margin: 1.2em 0; padding: .1em 0 .1em 1.1em; border-left: 2px solid var(--hiloo-accent); color: var(--hiloo-muted); }
+.surface :global(.hiloo-document blockquote p:last-child) { margin-bottom: 0; }
+.surface :global(.hiloo-document a) { color: var(--hiloo-accent); text-decoration: underline; text-underline-offset: 3px; cursor: text; }
+.surface :global(.hiloo-document code) { font: .87em/1.5 Consolas, monospace; background: var(--hiloo-bar); border-radius: 3px; padding: .1em .25em; }
+.surface :global(.hiloo-document pre) { overflow: auto; padding: 16px; border: 1px solid var(--hiloo-border); border-radius: 4px; background: var(--hiloo-bar); }
+.surface :global(.hiloo-document pre code) { padding: 0; background: none; }
+.surface :global(.hiloo-document hr) { border: 0; border-top: 1px solid var(--hiloo-border); margin: 2em 0; }
+.surface :global(.ProseMirror-selectednode) { outline: 2px solid var(--hiloo-accent); }
+.surface :global(.ProseMirror-trailingBreak) { display: initial; }
+.original { color: var(--hiloo-text); white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.7 Consolas, monospace; }
+@media (max-width: 600px) { .surface { padding: 26px 24px 64px; } }

@@ -1,0 +1,21 @@
+appId: local.hiloo.app
+productName: hiloo
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+  - '!node_modules/**/*'
+asar: true
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+artifactName: '${productName}-${version}-${arch}-setup.${ext}'
