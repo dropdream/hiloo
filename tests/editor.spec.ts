@@ -121,7 +121,7 @@ test('original sin editar conserva bytes, BOM y CRLF; formatos no admitidos no s
   await expect(page.getByRole('status')).toHaveText('Guardado')
   await page.getByRole('button', { name: 'Guardar', exact: true }).click()
   expect(await fs.readFile(path)).toEqual(bytes)
-  for (const [name, content] of Object.entries({ html: '<script>alert(1)</script>', table: '| a | b |\n|---|---|\n| 1 | 2 |', tasks: '- [ ] pendiente', image: '![imagen](https://example.com/image.png)', metadata: '---\ntitle: secreto\n---\nTexto', protocol: '[enlace](javascript:alert%281%29)' })) {
+  for (const [name, content] of Object.entries({ html: '<script>alert(1)</script>', metadata: '---\ntitle: secreto\n---\nTexto', protocol: '[enlace](javascript:alert%281%29)', imageProtocol: '![imagen](javascript:alert%281%29)' })) {
     const unsupported = testInfo.outputPath(`${name}.md`)
     await fs.writeFile(unsupported, content)
     await chooseOpen(application, unsupported)

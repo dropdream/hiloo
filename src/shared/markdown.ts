@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import remarkFrontmatter from 'remark-frontmatter'
 
 const parser = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ['yaml', 'toml'])
-const supported = new Set(['root', 'paragraph', 'text', 'heading', 'strong', 'emphasis', 'blockquote', 'list', 'listItem', 'code', 'inlineCode', 'break', 'thematicBreak', 'link'])
+const supported = new Set(['root', 'paragraph', 'text', 'heading', 'strong', 'emphasis', 'blockquote', 'list', 'listItem', 'code', 'inlineCode', 'break', 'thematicBreak', 'link', 'image', 'table', 'tableRow', 'tableCell', 'delete'])
 const names: Record<string, string> = {
   html: 'HTML', image: 'imágenes', imageReference: 'imágenes por referencia',
   definition: 'referencias', linkReference: 'enlaces por referencia',
@@ -18,9 +18,9 @@ export function markdownProblem(markdown: string): string | null {
   function visit(node: { type: string; children?: unknown[]; checked?: unknown; url?: string; meta?: string | null }): void {
     if (problem) return
     if (!supported.has(node.type)) problem = names[node.type] ?? node.type
-    if (node.type === 'listItem' && node.checked != null) problem = 'listas de tareas'
     if (node.type === 'code' && node.meta) problem = 'atributos adicionales de código'
     if (node.type === 'link' && node.url && !safeLink(node.url)) problem = 'enlaces con un protocolo no admitido'
+    if (node.type === 'image' && (!node.url || !safeImage(node.url))) problem = 'imágenes con un origen no admitido'
     node.children?.forEach((child) => visit(child as typeof node))
   }
   visit(tree)
@@ -35,6 +35,20 @@ export function safeLink(url: string): boolean {
 
 export function markdownSignature(markdown: string): string {
   return JSON.stringify(parser.parse(markdown), (key, value: unknown) =>
-    key === 'position' || key === 'spread' || key === 'checked' ? undefined : value
+    key === 'position' || key === 'spread' ? undefined : value
   )
+}
+
+/** Image origins are web URLs or document-relative paths, never arbitrary file URLs. */
+export function safeImage(source: string): boolean {
+  const value = source.trim()
+  if (!value || /[\u0000-\u001f\u007f\\]/.test(value)) return false
+  if (/^https?:\/\//i.test(value)) {
+    try { return Boolean(new URL(value).hostname) } catch { return false }
+  }
+  if (/^[a-z][a-z\d+.-]*:/i.test(value) || value.startsWith('/') || value.startsWith('#') || value.startsWith('?')) return false
+  try {
+    const path = decodeURIComponent(value.split(/[?#]/, 1)[0])
+    return Boolean(path) && !path.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(path)
+  } catch { return false }
 }
