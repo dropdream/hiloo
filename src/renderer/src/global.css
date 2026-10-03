@@ -1,0 +1,33 @@
+:root {
+  --hiloo-bar: #203f5d;
+  --hiloo-border: #36556f;
+  --hiloo-text: #edf3f8;
+  --hiloo-muted: #b6c7d6;
+  --hiloo-accent: #85c7ee;
+  --hiloo-hover: #2e5271;
+  --hiloo-active: #294d6b;
+  --hiloo-ui-font: 'Segoe UI', system-ui, sans-serif;
+  --hiloo-document-font: 'Segoe UI', system-ui, sans-serif;
+  --hiloo-document-text: #edf3f8;
+  --hiloo-document-size: 17px;
+  --hiloo-document-line-height: 1.8;
+  --hiloo-document-width: 860px;
+  color-scheme: dark;
+  color: var(--hiloo-text);
+  font-family: var(--hiloo-ui-font);
+}
+
+* { box-sizing: border-box; }
+button, select { font-family: inherit; }
+button:focus-visible, [role='combobox']:focus-visible { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
+::selection { color: var(--hiloo-text); background: #387096; }
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--hiloo-window-background);
+}
