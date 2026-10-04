@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DocumentBridge, DocumentSnapshot } from '../shared/documents'
 import type { AppearanceBridge } from '../shared/window'
+import type { WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
 
 const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
@@ -41,3 +42,20 @@ const appearance: AppearanceBridge = {
 }
 
 contextBridge.exposeInMainWorld('appearance', appearance)
+
+const workspace: WorkspaceBridge = {
+  current: () => ipcRenderer.invoke('workspace:current'),
+  choose: () => ipcRenderer.invoke('workspace:choose'),
+  refresh: () => ipcRenderer.invoke('workspace:refresh'),
+  open: (noteId) => ipcRenderer.invoke('workspace:open', noteId),
+  preview: (noteId) => ipcRenderer.invoke('workspace:preview', noteId),
+  linkTo: (noteId) => ipcRenderer.invoke('workspace:link-to', noteId),
+  create: (parentId, name, kind) => ipcRenderer.invoke('workspace:create', parentId, name, kind),
+  onChange: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, value: WorkspaceSnapshot | null) => callback(value)
+    ipcRenderer.on('workspace:changed', listener)
+    return () => { ipcRenderer.removeListener('workspace:changed', listener) }
+  }
+}
+
+contextBridge.exposeInMainWorld('workspace', workspace)

@@ -4,7 +4,7 @@ import { wrapInList } from '@milkdown/kit/prose/schema-list'
 import { safeImage, safeLink } from '../../shared/markdown'
 
 export type TableAction = 'row-before' | 'row-after' | 'column-before' | 'column-after' | 'delete-row' | 'delete-column' | 'delete-table' | 'align-left' | 'align-center' | 'align-right'
-export interface LinkValue { href: string; title: string; text: string }
+export interface LinkValue { href: string; title: string; text: string; fallbackText?: string }
 export interface ImageValue { src: string; alt: string; title: string }
 
 export function selectedLink(state: EditorState) {
@@ -58,7 +58,7 @@ export function setLink(value: LinkValue): Command {
     if (containsImage) return false
     const mark = state.schema.marks.link.create({ href, title: value.title || null })
     const currentText = state.doc.textBetween(from, to)
-    const text = value.text || currentText || href
+    const text = value.text || currentText || value.fallbackText || href
     const tr = state.tr
     if (text !== currentText || from === to) {
       const marks = (state.storedMarks ?? $from.nodeAfter?.marks ?? $from.marks()).filter((item) => item.type !== state.schema.marks.link)
