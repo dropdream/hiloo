@@ -14,6 +14,16 @@ export interface DocumentSnapshot {
   hasFile: boolean
 }
 
+export interface RecentEntry {
+  id: string
+  name: string
+  path: string
+  lastOpenedAt: string
+  current: boolean
+}
+
+export type RecentDocument = RecentEntry
+
 export type DocumentResult = { status: 'ok' } | { status: 'cancelled' } | { status: 'error'; message: string }
 
 export interface DocumentPrintSnapshot {
@@ -27,6 +37,9 @@ export type DocumentPreviewResult = ({ status: 'ok'; pdf: Uint8Array } & Documen
 export interface DocumentBridge {
   current(): Promise<DocumentSnapshot>
   open(): Promise<DocumentResult>
+  recent(): Promise<RecentDocument[]>
+  openRecent(id: string): Promise<DocumentResult>
+  onRecentChange(callback: (documents: RecentDocument[]) => void): () => void
   save(asCopy?: boolean): Promise<DocumentResult>
   printPreview(settings: PageSettings): Promise<DocumentPreviewResult>
   print(settings: PageSettings, snapshot?: DocumentPrintSnapshot): Promise<DocumentResult>

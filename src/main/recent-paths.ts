@@ -1,26 +1,27 @@
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import { basename, dirname, isAbsolute } from 'node:path'
-import type { RecentWorkspace } from '../shared/workspace'
+import type { RecentEntry } from '../shared/documents'
 import { pathKey } from './workspace'
 
-type StoredWorkspace = Omit<RecentWorkspace, 'current'>
+type StoredEntry = Omit<RecentEntry, 'current'>
 
-const maxRecentWorkspaces = 10
+const maxRecentEntries = 10
 const maxHistoryBytes = 1024 * 1024
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function validEntry(value: unknown): value is StoredWorkspace {
+function validEntry(value: unknown): value is StoredEntry {
   if (!value || typeof value !== 'object') return false
-  const entry = value as Partial<StoredWorkspace>
+  const entry = value as Partial<StoredEntry>
   return typeof entry.id === 'string' && uuid.test(entry.id)
     && typeof entry.name === 'string'
     && typeof entry.path === 'string' && entry.path.length <= 32767 && !entry.path.includes('\0') && isAbsolute(entry.path)
     && typeof entry.lastOpenedAt === 'string' && Number.isFinite(Date.parse(entry.lastOpenedAt))
 }
 
-export class RecentWorkspaces {
-  private entries: StoredWorkspace[] = []
+// Recent notebooks and documents share one bounded, atomically written history format.
+export class RecentPaths {
+  private entries: StoredEntry[] = []
   private loaded: Promise<void> | null = null
 
   constructor(private readonly filePath: string) {}
@@ -50,30 +51,30 @@ export class RecentWorkspaces {
             paths.add(key)
             ids.add(entry.id)
             return true
-          }).slice(0, maxRecentWorkspaces)
+          }).slice(0, maxRecentEntries)
           .map(({ id, path, lastOpenedAt }) => ({ id, path, lastOpenedAt, name: basename(path) || path }))
-      } catch { /* A missing or damaged history must not prevent opening a notebook. */ }
+      } catch { /* A missing or damaged history must not prevent opening a notebook or document. */ }
     })()
     return this.loaded
   }
 
-  async list(currentRoot: string | null): Promise<RecentWorkspace[]> {
+  async list(currentPath: string | null): Promise<RecentEntry[]> {
     await this.load()
-    return this.entries.map((entry) => ({ ...entry, current: currentRoot !== null && pathKey(entry.path) === pathKey(currentRoot) }))
+    return this.entries.map((entry) => ({ ...entry, current: currentPath !== null && pathKey(entry.path) === pathKey(currentPath) }))
   }
 
-  async find(id: unknown): Promise<StoredWorkspace | undefined> {
+  async find(id: unknown): Promise<StoredEntry | undefined> {
     if (typeof id !== 'string' || !uuid.test(id)) return undefined
     await this.load()
     return this.entries.find((entry) => entry.id === id)
   }
 
-  async remember(root: string): Promise<void> {
+  async remember(path: string): Promise<void> {
     await this.load()
-    const key = pathKey(root)
+    const key = pathKey(path)
     const existing = this.entries.find((entry) => pathKey(entry.path) === key)
-    this.entries = [{ id: existing?.id ?? randomUUID(), name: basename(root) || root, path: root, lastOpenedAt: new Date().toISOString() },
-      ...this.entries.filter((entry) => pathKey(entry.path) !== key)].slice(0, maxRecentWorkspaces)
+    this.entries = [{ id: existing?.id ?? randomUUID(), name: basename(path) || path, path, lastOpenedAt: new Date().toISOString() },
+      ...this.entries.filter((entry) => pathKey(entry.path) !== key)].slice(0, maxRecentEntries)
     await fs.mkdir(dirname(this.filePath), { recursive: true })
     const temporary = `${this.filePath}.${randomUUID()}.tmp`
     try {

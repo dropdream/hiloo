@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import type { RecentDocument } from '../../shared/documents'
 import type { RecentWorkspace, WorkspaceNote, WorkspaceSnapshot } from '../../shared/workspace'
+import type { RecentList } from './use-recent-list'
 import { Icon } from './Icon'
 import styles from './Sidebar.module.css'
 
@@ -12,12 +14,72 @@ interface Props {
   recentError: string
   onRetryRecent(): void
   onOpenRecent(id: string): Promise<boolean>
+  recentDocuments: RecentList<RecentDocument>
+  onOpenRecentDocument(id: string): Promise<boolean>
+  onPrintStyle(): void
   onChoose(): void
   onRefresh(): void
   onOpen(id: string): void
   onCreate(parentId: string, name: string, kind: 'folder' | 'note'): Promise<boolean>
   onBrain(): void
   onClose(): void
+}
+
+interface RecentPanelProps {
+  id: string
+  entries: RecentWorkspace[] | RecentDocument[]
+  loading: boolean
+  error: string
+  busy: boolean
+  // Spanish nouns for messages and accessible names.
+  plural: string
+  singular: string
+  emptyHint: string
+  openFailure: string
+  fallbackFocus: HTMLButtonElement | null
+  onRetry(): void
+  onOpen(id: string): Promise<boolean>
+  onOpened(): void
+}
+
+function RecentPanel({ id, entries, loading, error, busy, plural, singular, emptyHint, openFailure, fallbackFocus, onRetry, onOpen, onOpened }: RecentPanelProps) {
+  const selection = useRef<HTMLButtonElement | null>(null)
+  const [openError, setOpenError] = useState('')
+  const [restoreFocus, setRestoreFocus] = useState(false)
+  useEffect(() => {
+    if (!restoreFocus || busy) return
+    selection.current?.focus()
+    setRestoreFocus(false)
+  }, [restoreFocus, busy])
+
+  const open = async (entryId: string, trigger: HTMLButtonElement) => {
+    selection.current = trigger
+    setOpenError('')
+    try {
+      if (await onOpen(entryId)) onOpened()
+      else setRestoreFocus(true)
+    } catch (failure) {
+      setOpenError(failure instanceof Error ? failure.message : openFailure)
+      selection.current = fallbackFocus
+      setRestoreFocus(true)
+    }
+  }
+
+  return <>
+    {openError ? <p className={styles.recentMessage} role="alert">{openError}</p> : null}
+    <div id={id} className={styles.recentPanel} role="region" aria-label={`Lista de ${plural} recientes`} aria-busy={loading}>
+      {loading ? <p className={styles.recentMessage} role="status">Cargando {plural} recientes…</p> : error ? <div className={styles.recentMessage}>
+        <p role="alert">{error}</p><button type="button" className={styles.retryRecent} onClick={onRetry}>Reintentar</button>
+      </div> : entries.length ? <ul className={styles.recentList}>
+        {entries.map((item) => <li key={item.id}>
+          <button type="button" className={styles.recentRow} disabled={busy || item.current} aria-label={`Abrir ${singular} reciente: ${item.path}`} aria-current={item.current ? 'true' : undefined} title={item.path} onClick={(event) => { void open(item.id, event.currentTarget) }}>
+            <span className={styles.recentName}>{item.name}{item.current ? <span className={styles.recentCurrent}>Actual</span> : null}</span>
+            <span className={styles.recentPath}>{item.path}</span>
+          </button>
+        </li>)}
+      </ul> : <p className={styles.recentMessage}>Aún no hay {plural} recientes. {emptyHint}</p>}
+    </div>
+  </>
 }
 
 const searchText = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es')
@@ -82,7 +144,7 @@ function NoteTree({ folder, collapsed, currentNoteId, selectedParentId, busy, on
   </ul>
 }
 
-export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLoading, recentError, onRetryRecent, onOpenRecent, onChoose, onRefresh, onOpen, onCreate, onBrain, onClose }: Props) {
+export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLoading, recentError, onRetryRecent, onOpenRecent, recentDocuments, onOpenRecentDocument, onPrintStyle, onChoose, onRefresh, onOpen, onCreate, onBrain, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
@@ -97,10 +159,11 @@ export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLo
   const formId = useId()
   const recentId = useId()
   const recentTrigger = useRef<HTMLButtonElement>(null)
-  const recentSelection = useRef<HTMLButtonElement | null>(null)
   const [recentOpen, setRecentOpen] = useState(false)
-  const [recentOpenError, setRecentOpenError] = useState('')
-  const [restoreRecentFocus, setRestoreRecentFocus] = useState(false)
+  const menuId = useId()
+  const [menu, setMenu] = useState<'documents' | 'settings' | null>(null)
+  const documentsTrigger = useRef<HTMLButtonElement>(null)
+  const settingsTrigger = useRef<HTMLButtonElement>(null)
   const selectedParentId = workspace?.folders.some((folder) => folder.id === selectedFolderId) ? selectedFolderId! : workspace?.id ?? ''
   const parentId = workspace?.folders.some((folder) => folder.id === destinationId) ? destinationId : workspace?.id ?? ''
   const blocked = busy || creating
@@ -111,23 +174,10 @@ export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLo
   const tree = useMemo(() => buildTree(notes, workspace?.folders ?? [], workspace?.id ?? '', searchText(query.trim())), [notes, workspace, query])
   useEffect(() => { if (creationKind) nameInput.current?.focus() }, [creationKind])
   useEffect(() => { if (creationError && !creating && !busy) nameInput.current?.focus() }, [creationError, creating, busy])
-  useEffect(() => {
-    if (!restoreRecentFocus || busy) return
-    if (recentOpen) recentSelection.current?.focus()
-    setRestoreRecentFocus(false)
-  }, [restoreRecentFocus, busy, recentOpen])
-
-  const openRecent = async (id: string, trigger: HTMLButtonElement) => {
-    recentSelection.current = trigger
-    setRecentOpenError('')
-    try {
-      if (await onOpenRecent(id)) setRecentOpen(false)
-      else setRestoreRecentFocus(true)
-    } catch (failure) {
-      setRecentOpenError(failure instanceof Error ? failure.message : 'No se pudo abrir este cuaderno. Comprueba que la carpeta exista y esté disponible.')
-      recentSelection.current = recentTrigger.current
-      setRestoreRecentFocus(true)
-    }
+  const closeMenu = () => {
+    const trigger = menu === 'documents' ? documentsTrigger.current : settingsTrigger.current
+    setMenu(null)
+    trigger?.focus()
   }
 
   const selectFolder = (id: string) => {
@@ -186,6 +236,33 @@ export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLo
       <h2>Cuaderno</h2>
       <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Cerrar panel de notas" title="Cerrar panel de notas"><Icon name="close" /></button>
     </header>
+    <section className={styles.menu} onKeyDown={(event) => {
+      if (event.key === 'Escape' && menu) {
+        event.preventDefault()
+        event.stopPropagation()
+        closeMenu()
+      }
+    }}>
+      <div className={styles.menuBar} role="group" aria-label="Menú del panel">
+        <button ref={documentsTrigger} type="button" aria-expanded={menu === 'documents'} aria-controls={`${menuId}-documents`} onClick={() => setMenu((value) => value === 'documents' ? null : 'documents')}>
+          <Icon name="history" /><span>Documentos recientes</span><Icon name="chevron" className={styles.recentChevron} data-expanded={menu === 'documents'} />
+        </button>
+        <button ref={settingsTrigger} type="button" aria-expanded={menu === 'settings'} aria-controls={`${menuId}-settings`} onClick={() => setMenu((value) => value === 'settings' ? null : 'settings')}>
+          <Icon name="settings" /><span>Configuraciones</span><Icon name="chevron" className={styles.recentChevron} data-expanded={menu === 'settings'} />
+        </button>
+      </div>
+      {menu === 'documents' ? <RecentPanel id={`${menuId}-documents`} entries={recentDocuments.items} loading={recentDocuments.loading} error={recentDocuments.error} busy={busy} plural="documentos" singular="documento"
+        emptyHint="Abre o guarda un documento para verlo aquí." openFailure="No se pudo abrir este documento. Comprueba que el archivo exista y esté disponible."
+        fallbackFocus={documentsTrigger.current} onRetry={recentDocuments.reload} onOpen={onOpenRecentDocument} onOpened={() => setMenu(null)} /> : null}
+      {menu === 'settings' ? <div id={`${menuId}-settings`} className={styles.recentPanel} role="region" aria-label="Configuraciones">
+        <ul className={styles.recentList}>
+          <li><button type="button" className={styles.recentRow} disabled={busy} onClick={onPrintStyle}>
+            <span className={styles.recentName}><Icon name="print" />CSS de impresión</span>
+            <span className={styles.settingHint}>Formato de títulos, párrafos y texto al imprimir</span>
+          </button></li>
+        </ul>
+      </div> : null}
+    </section>
     <section className={styles.recent} onKeyDown={(event) => {
       if (event.key === 'Escape' && recentOpen) {
         event.preventDefault()
@@ -197,19 +274,9 @@ export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLo
       <button ref={recentTrigger} type="button" className={styles.recentToggle} aria-expanded={recentOpen} aria-controls={recentId} onClick={() => setRecentOpen((value) => !value)}>
         <Icon name="history" /><span>Cuadernos recientes</span><Icon name="chevron" className={styles.recentChevron} data-expanded={recentOpen} />
       </button>
-      {recentOpen && recentOpenError ? <p className={styles.recentMessage} role="alert">{recentOpenError}</p> : null}
-      {recentOpen ? <div id={recentId} className={styles.recentPanel} role="region" aria-label="Lista de cuadernos recientes" aria-busy={recentLoading}>
-        {recentLoading ? <p className={styles.recentMessage} role="status">Cargando cuadernos recientes…</p> : recentError ? <div className={styles.recentMessage}>
-          <p role="alert">{recentError}</p><button type="button" className={styles.retryRecent} onClick={onRetryRecent}>Reintentar</button>
-        </div> : recentWorkspaces.length ? <ul className={styles.recentList}>
-          {recentWorkspaces.map((item) => <li key={item.id}>
-            <button type="button" className={styles.recentRow} disabled={blocked || item.current} aria-label={`Abrir cuaderno reciente: ${item.path}`} aria-current={item.current ? 'true' : undefined} title={item.path} onClick={(event) => { void openRecent(item.id, event.currentTarget) }}>
-              <span className={styles.recentName}>{item.name}{item.current ? <span className={styles.recentCurrent}>Actual</span> : null}</span>
-              <span className={styles.recentPath}>{item.path}</span>
-            </button>
-          </li>)}
-        </ul> : <p className={styles.recentMessage}>Aún no hay cuadernos recientes. Abre un cuaderno para verlo aquí.</p>}
-      </div> : null}
+      {recentOpen ? <RecentPanel id={recentId} entries={recentWorkspaces} loading={recentLoading} error={recentError} busy={blocked} plural="cuadernos" singular="cuaderno"
+        emptyHint="Abre un cuaderno para verlo aquí." openFailure="No se pudo abrir este cuaderno. Comprueba que la carpeta exista y esté disponible."
+        fallbackFocus={recentTrigger.current} onRetry={onRetryRecent} onOpen={onOpenRecent} onOpened={() => setRecentOpen(false)} /> : null}
     </section>
     {workspace ? <>
       <div className={styles.folder}>

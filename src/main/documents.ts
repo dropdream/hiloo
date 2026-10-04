@@ -7,7 +7,7 @@ import { markdownProblem, safeImage } from '../shared/markdown'
 import { validatePageSettings, type PageSettings } from '../shared/printing'
 import type { WorkspaceLinkResult, WorkspacePreviewResult } from '../shared/workspace'
 import { previewDocument, printDocument } from './printing'
-import { RecentWorkspaces } from './recent-workspaces'
+import { RecentPaths } from './recent-paths'
 import { attachBrain } from './brain-service'
 import { createWorkspace, pathKey, scanWorkspace, validateWorkspaceNote, withinWorkspace, workspaceCreationParent, workspaceEntryName, type WorkspaceSession } from './workspace'
 
@@ -44,7 +44,8 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   let allowClose = false
   let pendingFlush: { id: string; resolve(error: string | null): void } | null = null
   let printPreview: (DocumentPrintSnapshot & { settings: PageSettings }) | null = null
-  const recentWorkspaces = new RecentWorkspaces(join(app.getPath('userData'), 'recent-workspaces.json'))
+  const recentWorkspaces = new RecentPaths(join(app.getPath('userData'), 'recent-workspaces.json'))
+  const recentDocuments = new RecentPaths(join(app.getPath('userData'), 'recent-documents.json'))
   const brain = attachBrain(window, trustedUrl)
   const channels: string[] = []
   const dirty = () => Boolean(document.updateError) || document.content !== document.source
@@ -52,7 +53,15 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   const emit = () => {
     window.setTitle(`${dirty() ? '• ' : ''}${snapshot().name} — hiloo`)
     window.webContents.send('document:changed', snapshot())
+    emitRecentDocuments()
   }
+  const emitRecentDocuments = () => {
+    void recentDocuments.list(document.path).then((entries) => {
+      if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('document:recent-changed', entries)
+    })
+  }
+  // The history only helps reopen files; failing to record it must not fail open or save.
+  const rememberDocument = (path: string) => recentDocuments.remember(path).catch(() => {})
   const emitWorkspace = () => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('workspace:changed', workspace?.snapshot ?? null)
     void recentWorkspaces.list(workspace?.root ?? null).then((entries) => {
@@ -220,6 +229,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     }
     const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
     document = { ...document, path: target, original: bytes, source, savedRevision: writing.revision, content: document.revision === writing.revision ? source : document.content }
+    await rememberDocument(target)
     emit()
     if (document.updateError) throw new Error(document.updateError)
     await followDocument()
@@ -257,6 +267,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (problem) throw new Error(problem)
     if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.')
     document = { id: randomUUID(), path, original: bytes, source, content: source, bom: bytes.subarray(0, 3).equals(Buffer.from([239, 187, 191])), crlf: source.includes('\r\n'), revision: 0, savedRevision: 0, updateError: null }
+    await rememberDocument(path)
     emit()
     await followDocument()
     return { status: 'ok' }
@@ -433,6 +444,20 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   })
 
   handle('document:current', () => snapshot())
+  handle('document:recent', () => recentDocuments.list(document.path))
+  handle('document:open-recent', async (id) => {
+    const entry = await recentDocuments.find(id)
+    if (!entry) return { status: 'error', message: 'El documento seleccionado no pertenece a los recientes.' }
+    return operation(async () => {
+      if (!await confirmChanges()) return { status: 'cancelled' }
+      try { return await openPath(entry.path, document.revision) } catch (error) {
+        if (error instanceof Error && error.message === 'El archivo ya no existe.') {
+          return { status: 'error', message: 'El documento ya no está disponible. Comprueba su ubicación o ábrelo con Abrir.' }
+        }
+        throw error
+      }
+    })
+  })
   handle('document:image-source', async (id, source) => {
     if (id !== document.id || typeof source !== 'string' || source.length > 8192 || !safeImage(source)) return null
     const origin = source.trim()

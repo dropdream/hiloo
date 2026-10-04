@@ -12,6 +12,12 @@ La barra de formato de texto actúa sobre la vista visual. En Markdown se escrib
 
 El código debe pertenecer al [Markdown admitido](estilo-markdown.md) para convertirse a la vista visual e imprimirse. Si una conversión alteraría su estructura, se conserva el código y se muestra un aviso para corregirlo. No se ejecuta HTML escrito en el documento. La edición visual puede normalizar la sintaxis al modificar el contenido; alternar las vistas por sí solo conserva el original.
 
+## Zoom
+
+La barra inferior del documento controla el zoom, como en un procesador de textos: **Alejar** y **Acercar** en pasos de 10 %, un deslizador de 50 % a 200 % y el porcentaje actual, que restablece el 100 % al pulsarlo. **Ajustar a pantalla** amplía la hoja al ancho disponible y se reajusta al cambiar el tamaño de la ventana o abrir el panel lateral, hasta elegir otro zoom. Como la hoja ya se adapta a ventanas estrechas, el ajuste nunca baja del 100 %.
+
+También funcionan **Ctrl++**, **Ctrl+-**, **Ctrl+0** y Ctrl+rueda del ratón sobre el documento. En la vista Markdown el zoom escala el tamaño del código. El zoom se mantiene durante la sesión, no modifica el archivo ni lo marca como editado y no afecta a la impresión ni a la vista previa.
+
 ## Formato de página
 
 **Formato de página** abre un diálogo con tamaños predefinidos y un formato personalizado. Las medidas se muestran en milímetros:
@@ -40,3 +46,18 @@ La salida usa el tamaño elegido y márgenes de 15 mm, texto oscuro sobre fondo 
 La aplicación solicita las medidas al controlador de impresión; la impresora y su controlador deben admitir el papel seleccionado. Revisar en el diálogo nativo cualquier ajuste del controlador. Windows puede indicar que no admite vista previa en ese diálogo: la previsualización se realiza previamente dentro de hiloo. Cancelar la impresión conserva el contenido y permite continuar editando. La aplicación no guarda el documento como efecto de imprimir ni envía trabajos silenciosos.
 
 La integración usa los puentes acotados `documents.printPreview` y `documents.print`, con validación de origen IPC, formato y revisión en el proceso principal. PDF.js dibuja el PDF en un lienzo con un worker local, sin marcos, enlaces activos ni scripts del documento. Las unidades de Electron se documentan en [webContents.print](https://www.electronjs.org/docs/latest/api/web-contents#contentsprintoptions-callback).
+
+## CSS de impresión
+
+**Configuraciones → CSS de impresión**, en el menú superior del panel lateral, abre un editor para personalizar el formato impreso de títulos, párrafos, citas, tablas, código y texto. **Usar ejemplo** inserta una plantilla. Guardar lo conserva en `print-style.css` del perfil de usuario, para todos los documentos y sesiones; dejarlo vacío vuelve al formato predeterminado.
+
+Las reglas se aplican solo al imprimir y en la vista previa de impresión, nunca a la edición ni al archivo Markdown. Quedan limitadas al documento: los selectores se escriben relativos a él (`h1`, `p`, `blockquote`, `table`, `code`…) y las declaraciones sin selector afectan a todo el documento. Por ejemplo:
+
+```css
+font-family: Georgia, serif;
+font-size: 12pt;
+h1 { font-size: 22pt; text-align: center; }
+p { text-align: justify; }
+```
+
+Estas reglas prevalecen sobre las predeterminadas de impresión. El tamaño de papel y los márgenes de 15 mm siguen definiéndose en **Formato de página**; `@page` no se admite. El CSS tiene un límite de 64 KB y se valida en el proceso principal mediante el puente `settings`. La política de contenido bloquea `@import` y fuentes remotas.

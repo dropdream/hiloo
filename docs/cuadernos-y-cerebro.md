@@ -15,6 +15,15 @@ La vista gráfica descrita aquí corresponde al cuaderno activo. El [índice glo
 
 En ventanas estrechas el panel se superpone al editor y se cierra al abrir una nota. Escape cierra el panel desde sus controles y devuelve el foco al botón del título. El panel no aparece en la impresión.
 
+## Menú del panel
+
+La parte superior del panel lateral tiene dos entradas desplegables:
+
+- **Documentos recientes** muestra los últimos diez archivos Markdown abiertos o guardados, con nombre, ruta y la marca **Actual**. Seleccionar uno lo abre sin el selector de Windows y ofrece Guardar, Descartar o Cancelar si hay cambios pendientes. Si el archivo ya no existe, se muestra un aviso y se conserva el documento actual. La lista persiste entre sesiones en `recent-documents.json` del perfil y su apertura exige un identificador registrado.
+- **Configuraciones** reúne los ajustes de la aplicación. Su primera opción, **CSS de impresión**, se describe en [Vistas e impresión](vistas-e-impresion.md#css-de-impresión).
+
+Escape desde una lista la pliega y devuelve el foco a su entrada del menú.
+
 ## Cuadernos recientes
 
 **Cuadernos recientes**, debajo del encabezado del panel lateral, despliega los últimos diez cuadernos abiertos, del más reciente al más antiguo. Está disponible también al iniciar sin cuaderno. Cada entrada muestra el nombre y la ruta para distinguir carpetas que se llaman igual; **Actual** identifica el cuaderno activo.
