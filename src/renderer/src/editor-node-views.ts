@@ -2,9 +2,97 @@ import { closeHistory } from '@milkdown/kit/prose/history'
 import { NodeSelection } from '@milkdown/kit/prose/state'
 import type { EditorProps } from '@milkdown/kit/prose/view'
 import { safeImage } from '../../shared/markdown'
+import { renderMermaid } from './mermaid-renderer'
 
 export function editorNodeViews(editable: () => boolean, documentId: () => string | undefined): EditorProps['nodeViews'] {
   return {
+    code_block(initial) {
+      let node = initial
+      let version = 0
+      let destroyed = false
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const dom = document.createElement('div')
+      const preview = document.createElement('div')
+      preview.contentEditable = 'false'
+      const image = document.createElement('img')
+      image.alt = 'Diagrama de flujo Mermaid'
+      image.draggable = false
+      image.hidden = true
+      const status = document.createElement('p')
+      status.setAttribute('role', 'status')
+      preview.append(image, status)
+      const details = document.createElement('details')
+      const summary = document.createElement('summary')
+      summary.contentEditable = 'false'
+      summary.textContent = 'Código Mermaid'
+      const pre = document.createElement('pre')
+      const contentDOM = document.createElement('code')
+      pre.append(contentDOM)
+      details.append(summary, pre)
+      const failure = (message: string) => {
+        dom.dataset.loading = 'false'
+        dom.dataset.rendered = 'false'
+        image.hidden = true
+        status.hidden = false
+        status.textContent = message
+        details.open = true
+      }
+      const render = () => {
+        clearTimeout(timer)
+        const current = ++version
+        if (node.attrs.language) pre.dataset.language = String(node.attrs.language)
+        else delete pre.dataset.language
+        const mermaid = String(node.attrs.language ?? '').toLowerCase() === 'mermaid'
+        dom.className = mermaid ? 'document-mermaid' : 'document-code'
+        if (!mermaid) {
+          dom.dataset.loading = 'false'
+          preview.remove()
+          details.remove()
+          dom.append(pre)
+          return
+        }
+        details.append(pre)
+        dom.append(preview, details)
+        dom.dataset.loading = 'true'
+        dom.dataset.rendered = 'false'
+        image.hidden = true
+        image.removeAttribute('src')
+        status.hidden = false
+        status.textContent = 'Preparando diagrama…'
+        const source = node.textContent
+        timer = setTimeout(() => {
+          void renderMermaid(source).then((src) => {
+            if (destroyed || current !== version) return
+            image.onload = () => {
+              if (destroyed || current !== version) return
+              dom.dataset.loading = 'false'
+              dom.dataset.rendered = 'true'
+              image.hidden = false
+              status.hidden = true
+            }
+            image.onerror = () => { if (!destroyed && current === version) failure('No se pudo cargar el diagrama. El código se conserva.') }
+            image.src = src
+          }).catch((error: unknown) => {
+            if (!destroyed && current === version) failure(error instanceof Error && /^(El flujo|Las directivas|Las imágenes|Solo se muestran)/.test(error.message)
+              ? error.message : 'No se pudo dibujar el flujo Mermaid. Revisa el código; su contenido se conserva.')
+          })
+        }, 150)
+      }
+      render()
+      return {
+        dom, contentDOM,
+        update(next) {
+          if (next.type !== node.type) return false
+          const changed = next.textContent !== node.textContent || next.attrs.language !== node.attrs.language
+          node = next
+          if (changed) render()
+          return true
+        },
+        stopEvent: (event) => event.target === summary || preview.contains(event.target as globalThis.Node),
+        ignoreMutation: (mutation) => mutation.type !== 'selection' && !contentDOM.contains(mutation.target),
+        destroy() { destroyed = true; version++; clearTimeout(timer); image.onload = null; image.onerror = null }
+      }
+    },
     table(initial) {
       const dom = document.createElement('div')
       dom.className = 'document-table'

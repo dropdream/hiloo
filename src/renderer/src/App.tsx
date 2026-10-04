@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { maxDocumentBytes, type DocumentSnapshot, type DocumentResult } from '../../shared/documents'
+import { maxDocumentBytes, type DocumentSnapshot, type DocumentResult, type DocumentPreviewResult } from '../../shared/documents'
 import { defaultPageSettings, pageMarginMm, type PageSettings } from '../../shared/printing'
 import type { WindowTheme } from '../../shared/window'
 import type { RecentWorkspace, WorkspaceSnapshot } from '../../shared/workspace'
@@ -11,6 +11,7 @@ import { Icon } from './Icon'
 import styles from './App.module.css'
 
 const Brain = lazy(() => import('./Brain').then((module) => ({ default: module.Brain })))
+const PrintPreview = lazy(() => import('./PrintPreview').then((module) => ({ default: module.PrintPreview })))
 
 // Textareas expose LF, while the main process preserves a file's CRLF on save.
 function sameSource(left: string, right: string): boolean {
@@ -20,6 +21,9 @@ function sameSource(left: string, right: string): boolean {
 export function App() {
   const [document, setDocument] = useState<DocumentSnapshot | null>(null)
   const [busy, setBusy] = useState(false)
+  const [printPreview, setPrintPreview] = useState<{ result: Extract<DocumentPreviewResult, { status: 'ok' }>; settings: PageSettings } | null>(null)
+  const [printing, setPrinting] = useState(false)
+  const printFocus = useRef<HTMLElement | null>(null)
   const [operation, setOperation] = useState<'open' | 'save' | 'print' | 'theme'>('save')
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
@@ -46,6 +50,7 @@ export function App() {
   const controller = useRef<EditorController | null>(null)
   const current = useRef<DocumentSnapshot | null>(null)
   const locked = useRef(false)
+  const printSession = useRef(false)
   const pending = useRef<Promise<unknown>>(Promise.resolve())
   const syncError = useRef('')
   const editSequence = useRef(0)
@@ -81,7 +86,12 @@ export function App() {
   useEffect(() => {
     let active = true
     const unsubscribe = window.documents.onDocument(applyDocument)
-    const unsubscribeBusy = window.documents.onBusy((value) => { locked.current = value; controller.current?.setEditable(!value); setBusy(value) })
+    const unsubscribeBusy = window.documents.onBusy((value) => {
+      const active = value || printSession.current
+      locked.current = active
+      controller.current?.setEditable(!active)
+      setBusy(active)
+    })
     const unsubscribeError = window.documents.onError(setError)
     const unsubscribeFlush = window.documents.onFlush(async () => {
       locked.current = true
@@ -288,11 +298,14 @@ export function App() {
 
   const print = useCallback(async () => {
     if (locked.current || !prepareVisual() || !controller.current) return
+    printSession.current = true
     locked.current = true
     setOperation('print')
     setBusy(true)
     controller.current.setEditable(false)
     setError('')
+    printFocus.current = globalThis.document.activeElement instanceof HTMLElement ? globalThis.document.activeElement : null
+    let previewOpened = false
     try {
       const failure = await drainUpdates()
       if (failure) throw new Error(failure)
@@ -302,16 +315,40 @@ export function App() {
         const timer = setTimeout(() => reject(new Error('Las fuentes todavía no terminan de cargar. Vuelve a imprimir.')), 10000)
         void globalThis.document.fonts.ready.then(() => { clearTimeout(timer); resolve() }, () => { clearTimeout(timer); reject(new Error('No se pudieron preparar las fuentes para imprimir.')) })
       })
-      while (globalThis.document.querySelector('.document-image[data-loading="true"]')) {
-        if (Date.now() >= deadline) throw new Error('Hay imágenes que todavía no terminan de cargar. Espera y vuelve a imprimir.')
+      while (globalThis.document.querySelector('.document-image[data-loading="true"], .document-mermaid[data-loading="true"]')) {
+        if (Date.now() >= deadline) throw new Error('Hay imágenes o diagramas que todavía no terminan de cargar. Espera y vuelve a imprimir.')
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-      const result = await window.documents.print(pageSettings)
+      const result = await window.documents.printPreview(pageSettings)
       if (result.status === 'error') setError(result.message)
+      else if (result.status === 'ok') {
+        previewOpened = true
+        setPrintPreview({ result, settings: pageSettings })
+      }
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo imprimir el documento.') }
-    finally { locked.current = false; setBusy(false); controller.current?.setEditable(true) }
+    finally { if (!previewOpened) { printSession.current = false; locked.current = false; setBusy(false); controller.current?.setEditable(true) } }
   }, [drainUpdates, pageSettings, prepareVisual])
+
+  const closePrintPreview = () => {
+    setPrintPreview(null)
+    printSession.current = false
+    locked.current = false
+    setBusy(false)
+    controller.current?.setEditable(true)
+    requestAnimationFrame(() => printFocus.current?.isConnected ? printFocus.current.focus() : controller.current?.focus())
+  }
+
+  const confirmPrint = async () => {
+    if (!printPreview || printing) return
+    setPrinting(true)
+    try {
+      const { result, settings } = printPreview
+      const printed = await window.documents.print(settings, { documentId: result.documentId, revision: result.revision })
+      if (printed.status === 'error') setError(printed.message)
+    } catch { setError('No se pudo imprimir el documento.') }
+    finally { setPrinting(false); closePrintPreview() }
+  }
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -356,6 +393,7 @@ export function App() {
   const status = busy ? (operation === 'theme' ? 'Cambiando tema…' : operation === 'print' ? 'Preparando impresión…' : operation === 'save' ? 'Guardando…' : 'Abriendo…') : document?.dirty ? 'Cambios sin guardar' : document?.hasFile ? 'Guardado' : 'Sin cambios'
 
   return <div className={styles.app}>
+    {printPreview ? <Suspense fallback={null}><PrintPreview pdf={printPreview.result.pdf} printing={printing} onPrint={() => { void confirmPrint() }} onClose={closePrintPreview} /></Suspense> : null}
     <header className={styles.titlebar}>
       <button ref={sidebarButton} type="button" className={styles.sidebarToggle} aria-label={sidebarOpen ? 'Ocultar cuaderno' : 'Mostrar cuaderno'} title={sidebarOpen ? 'Ocultar cuaderno' : 'Mostrar cuaderno'} aria-expanded={sidebarOpen} aria-controls="notes-sidebar" onClick={() => setSidebarOpen((value) => !value)}><Icon name="sidebar" /></button>
       <span className={styles.filename}>{document?.name ?? 'hiloo'}</span>
