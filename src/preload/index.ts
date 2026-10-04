@@ -8,7 +8,8 @@ const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
   open: () => ipcRenderer.invoke('document:open'),
   save: (asCopy = false) => ipcRenderer.invoke('document:save', asCopy),
-  print: (settings) => ipcRenderer.invoke('document:print', settings),
+  printPreview: (settings) => ipcRenderer.invoke('document:print-preview', settings),
+  print: (settings, snapshot) => ipcRenderer.invoke('document:print', settings, snapshot),
   update: (id, content) => ipcRenderer.invoke('document:update', id, content),
   imageSource: (id, source) => ipcRenderer.invoke('document:image-source', id, source),
   onDocument: (callback) => {

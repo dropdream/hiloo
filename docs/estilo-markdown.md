@@ -56,6 +56,21 @@ Texto con **negrita**, *cursiva* y `código`.
 [Referencia](https://example.com)
 ```
 
+## Flujos Mermaid
+
+Los bloques de código con lenguaje `mermaid` muestran un diagrama local en Vista impresión. Se admiten cabeceras `flowchart` o `graph` con dirección `TB`, `TD`, `BT`, `RL` o `LR`; otros tipos conservan su código con un aviso. Por ejemplo:
+
+````markdown
+```mermaid
+flowchart LR
+  Inicio --> Revisión --> Fin
+```
+````
+
+El desplegable **Código Mermaid** permite editar la fuente y deshacer como cualquier bloque de código. Markdown, guardado y enlaces del cuaderno conservan el bloque original; no se guarda una imagen en su lugar. Los errores dejan el código visible para corregirlo. Cada diagrama usa papel claro propio, también con Fondo noche, y se imprime como imagen después de cargar; si falla, se imprime su código y aviso.
+
+El renderizado no accede a Internet y no habilita callbacks ni navegación. Usa seguridad estricta, etiquetas sin HTML e imágenes SVG aisladas del documento. Se rechazan directivas `%%{...}%%`, frontmatter de configuración, metadatos extendidos de nodos `@{...}` y estilos `url(...)` para impedir recursos externos. Los límites son 24 000 caracteres, 200 líneas/instrucciones y 200 conexiones por bloque. No hay exportación directa de diagramas, configuración de temas Mermaid ni soporte de los demás tipos de diagrama.
+
 ## Protección de archivos
 
 Abrir y cerrar consultan qué hacer con cambios pendientes. Cancelar mantiene la edición. Guardar compara el archivo con los bytes leídos originalmente y vuelve a comprobarlo antes del reemplazo: un cambio externo bloquea la sobrescritura y permite Guardar como. No hay observador en tiempo real, fusión automática ni bloqueo entre procesos; queda una ventana de carrera entre la comparación final y el reemplazo del sistema operativo.

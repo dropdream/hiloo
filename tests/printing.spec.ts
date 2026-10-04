@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { dirname } from 'node:path'
-import type { ElectronApplication } from '@playwright/test'
+import type { ElectronApplication, Page } from '@playwright/test'
 import type { WebContentsPrintOptions } from 'electron'
 import type { PageSettings } from '../src/shared/printing'
 import { test, expect, chooseOpen } from './fixtures'
@@ -43,6 +43,85 @@ async function printState(application: ElectronApplication) {
   return application.evaluate(() => (globalThis as typeof globalThis & { printTest: PrintState }).printTest)
 }
 
+async function confirmPreview(page: Page) {
+  const preview = page.getByRole('dialog', { name: 'Vista previa de impresión', exact: true })
+  await expect(preview).toBeVisible()
+  await expect(page.locator('.hiloo-document')).toHaveAttribute('contenteditable', 'false')
+  await preview.getByRole('button', { name: 'Imprimir', exact: true }).click()
+}
+
+test('vista previa paginada dibuja PDF real, bloquea edición y cancela sin abrir impresora', async ({ application, editorPage: page }, testInfo) => {
+  await interceptPrint(application)
+  await page.getByRole('button', { name: 'Markdown', exact: true }).click()
+  const source = page.getByRole('textbox', { name: 'Código Markdown', exact: true })
+  const content = '# Vista previa\n\n' + Array.from({ length: 80 }, (_, index) => `Párrafo ${index + 1}. Texto para comprobar la paginación del documento.\n\n`).join('')
+  await source.fill(content)
+  await source.press('Control+P')
+  const preview = page.getByRole('dialog', { name: 'Vista previa de impresión', exact: true })
+  await expect(preview).toBeVisible()
+  const canvas = preview.locator('canvas')
+  await expect(preview.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
+  await expect(preview.getByRole('status')).toHaveText(/Página 1 de [2-9]\d*/)
+  await expect(page.locator('.hiloo-document')).toHaveAttribute('contenteditable', 'false')
+  await expect(source).toHaveAttribute('readonly', '')
+  expect(await canvas.evaluate((element: HTMLCanvasElement) => {
+    const pixels = element.getContext('2d')!.getImageData(0, 0, element.width, element.height).data
+    let dark = 0
+    for (let index = 0; index < pixels.length; index += 4) if (pixels[index] < 150 && pixels[index + 3] > 0) dark++
+    return dark
+  })).toBeGreaterThan(100)
+  await preview.getByRole('button', { name: 'Siguiente', exact: true }).click()
+  await expect(preview.getByRole('status')).toHaveText(/Página 2 de/)
+  await expect(preview.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
+  await page.screenshot({ path: testInfo.outputPath('vista-previa.png') })
+  await page.keyboard.press('Escape')
+  await expect(preview).toHaveCount(0)
+  expect((await printState(application)).calls).toHaveLength(0)
+  await expect(source).not.toHaveAttribute('readonly', '')
+  await expect(source).toHaveValue(content)
+  await expect(page.getByRole('status')).toHaveText('Cambios sin guardar')
+})
+
+test('vista previa a 420 px mantiene el lienzo y la confirmación estables', async ({ application, editorPage: page }, testInfo) => {
+  await (await application.browserWindow(page)).evaluate((window) => window.setSize(420, 700))
+  await page.getByRole('textbox', { name: 'Documento Markdown', exact: true }).fill('Una página para revisar antes de imprimir.')
+  await page.getByRole('button', { name: 'Imprimir', exact: true }).click()
+  const preview = page.getByRole('dialog', { name: 'Vista previa de impresión', exact: true })
+  await expect(preview.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
+  const samples = await preview.evaluate(async (element) => {
+    const frames: Array<{ width: number; busy: string | null; disabled: boolean }> = []
+    for (let frame = 0; frame < 90; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const canvas = element.querySelector('canvas')!
+      frames.push({
+        width: canvas.getBoundingClientRect().width,
+        busy: canvas.parentElement!.getAttribute('aria-busy'),
+        disabled: [...element.querySelectorAll('button')].find((button) => button.textContent === 'Imprimir')!.disabled
+      })
+    }
+    return frames
+  })
+  expect(new Set(samples.map((sample) => sample.width)).size).toBe(1)
+  expect(samples.every((sample) => sample.busy === 'false' && !sample.disabled)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('vista-previa-420.png') })
+  await preview.getByRole('button', { name: 'Cancelar', exact: true }).click()
+})
+
+test('la confirmación rechaza una revisión distinta de la vista previa', async ({ application, editorPage: page }) => {
+  await interceptPrint(application)
+  await page.getByRole('textbox', { name: 'Documento Markdown', exact: true }).fill('Revisión original')
+  await page.getByRole('button', { name: 'Imprimir', exact: true }).click()
+  const preview = page.getByRole('dialog', { name: 'Vista previa de impresión', exact: true })
+  await expect(preview.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
+  await page.evaluate(async () => {
+    const current = await window.documents.current()
+    await window.documents.update(current.id, 'Revisión distinta')
+  })
+  await preview.getByRole('button', { name: 'Imprimir', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText(/vista previa|documento/i)
+  expect((await printState(application)).calls).toHaveLength(0)
+})
+
 test('Imprimir permite recuperar desde Markdown un documento con conversión inicial bloqueada', async ({ application, editorPage: page }, testInfo) => {
   const path = testInfo.outputPath('conversion-bloqueada.md')
   const original = '\uFEFF# Base\r\n\r\nOriginal.\r\nEdicion uno.\r\n'
@@ -58,6 +137,7 @@ test('Imprimir permite recuperar desde Markdown un documento con conversión ini
   await source.fill('# Recuperado\n\nContenido válido.\n')
   await expect(page.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Imprimir', exact: true }).click()
+  await confirmPreview(page)
   await expect.poll(async () => (await printState(application)).calls.length).toBe(1)
   const state = await printState(application)
   expect(state.error).toBeUndefined()
@@ -89,6 +169,7 @@ test('formatos predefinidos y personalizados envían medidas exactas a impresió
     await dialog.getByRole('button', { name: 'Aplicar', exact: true }).click()
     const count = (await printState(application)).calls.length
     await page.getByRole('button', { name: 'Imprimir', exact: true }).click()
+    await confirmPreview(page)
     await expect.poll(async () => (await printState(application)).calls.length).toBe(count + 1)
     const { options } = (await printState(application)).calls[count]
     expect(options).toMatchObject({ silent: false, printBackground: true, pageSize: { width: width * 1000, height: height * 1000 } })
@@ -113,6 +194,7 @@ for (const [label, width, height] of [['A5', 148, 210], ['Personalizado', 240.5,
     const source = page.getByRole('textbox', { name: 'Código Markdown', exact: true })
     await source.fill('# Impresión actualizada\n\n**Contenido más reciente**\n\n| Nombre | Valor |\n| --- | --- |\n| Papel | Correcto |\n\n- [x] Preparado\n')
     await source.press('Control+P')
+    await confirmPreview(page)
     await expect.poll(async () => {
       const state = await printState(application)
       return state.error ?? (state.pdf ? true : await page.getByRole('alert').allTextContents())
@@ -166,11 +248,13 @@ test('cancelación y error de impresora restauran controles y conservan los camb
   await page.getByRole('textbox', { name: 'Documento Markdown', exact: true }).fill('Edición pendiente de guardar')
   await application.evaluate(() => Object.assign((globalThis as typeof globalThis & { printTest: PrintState }).printTest, { success: false, reason: 'Print job canceled' }))
   await page.getByRole('button', { name: 'Imprimir', exact: true }).click()
+  await confirmPreview(page)
   await expect.poll(async () => (await printState(application)).calls.length).toBe(1)
   await expect(page.getByRole('button', { name: 'Imprimir', exact: true })).toBeEnabled()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await application.evaluate(() => Object.assign((globalThis as typeof globalThis & { printTest: PrintState }).printTest, { success: false, reason: 'Injected printer failure' }))
   await page.keyboard.press('Control+P')
+  await confirmPreview(page)
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
   await expect(page.getByRole('textbox', { name: 'Documento Markdown', exact: true })).toHaveAttribute('contenteditable', 'true')

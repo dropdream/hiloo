@@ -36,6 +36,14 @@
 .surface :global(.hiloo-document code) { font: .87em/1.5 Consolas, monospace; background: var(--hiloo-bar); border-radius: 3px; padding: .1em .25em; }
 .surface :global(.hiloo-document pre) { overflow: auto; padding: 16px; border: 1px solid var(--hiloo-border); border-radius: 4px; background: var(--hiloo-bar); }
 .surface :global(.hiloo-document pre code) { padding: 0; background: none; }
+.surface :global(.document-mermaid) { margin: 1.2em 0; }
+.surface :global(.document-mermaid > div) { padding: 16px; border-radius: 4px; background: #fff; color: #18212a; overflow: auto; }
+.surface :global(.document-mermaid img) { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.surface :global(.document-mermaid [hidden]) { display: none; }
+.surface :global(.document-mermaid summary) { cursor: pointer; color: var(--hiloo-document-text); font: .8em/1.6 var(--hiloo-ui-font); padding: .4em 0; }
+.surface :global(.document-mermaid summary:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
+.surface :global(.document-mermaid pre) { margin-top: .25em; }
+:global(.mermaid-staging) { position: fixed; left: -10000px; top: 0; width: 700px; visibility: hidden; pointer-events: none; background: #fff; color: #18212a; }
 .surface :global(.hiloo-document hr) { border: 0; border-top: 1px solid var(--hiloo-border); margin: 2em 0; }
 .surface :global(.ProseMirror-selectednode) { outline: 2px solid var(--hiloo-accent); }
 .surface :global(.ProseMirror-trailingBreak) { display: initial; }
@@ -55,6 +63,10 @@
   .surface :global(.hiloo-document pre code) { white-space: pre-wrap; }
   .surface :global(.document-image) { break-inside: avoid; }
   .surface :global(.document-image img) { width: auto; max-width: 100%; max-height: var(--hiloo-print-height); object-fit: contain; }
+  .surface :global(.document-mermaid) { break-inside: avoid; }
+  .surface :global(.document-mermaid img) { max-height: var(--hiloo-print-height); object-fit: contain; }
+  .surface :global(.document-mermaid[data-rendered='true'] details), .surface :global(.document-mermaid summary) { display: none; }
+  .surface :global(.document-mermaid[data-rendered='false'] details > pre) { display: block; }
   .surface :global(.ProseMirror-selectednode) { outline: none; }
   .surface :global(.hiloo-document .selectedCell::after) { display: none; }
 }

@@ -1,6 +1,6 @@
 # Diagramas dentro de notas Markdown
 
-Investigación para hiloo: 3 de octubre de 2026. Recomendación: **Mermaid**. Su integración queda pendiente; esta entrega incorpora el sidebar y Cerebro, no un renderizador de bloques Mermaid.
+Investigación para hiloo: 3 de octubre de 2026. La elección **Mermaid** se implementó posteriormente para flujos `flowchart`/`graph`, conservando los bloques de código en Markdown. Los demás tipos y alternativas siguen pendientes.
 
 ## Comparación
 
@@ -18,7 +18,7 @@ Hiloo ya conserva el lenguaje y texto de los bloques de código. El punto de int
 
 La configuración propuesta es renderización explícita, dependencia local y `securityLevel: 'strict'`, con límites de tamaño y conexiones. El modo Mermaid `sandbox` usa iframe y no encaja directamente con la CSP actual (`frame-src 'none'`). Ver [API y seguridad](https://mermaid.js.org/config/usage.html).
 
-Antes de integrar: verificar conservación al abrir/guardar/reabrir, alternancia de vistas, errores de sintaxis, deshacer, diagramas grandes, actualizaciones simultáneas e impresión. Esta última debe esperar a que termine la generación del SVG. La compatibilidad aún no se ha probado en ejecución.
+La integración actual implementa bloques `mermaid` de tipo `flowchart`/`graph` mediante NodeView de código, imagen SVG aislada, seguridad estricta y fuente editable. Su alcance y límites se documentan en [flujos Mermaid](estilo-markdown.md#flujos-mermaid). La impresión espera generación y carga de la imagen. Los otros tipos Mermaid, D2 y PlantUML permanecen pendientes.
 
 ## Ejemplo simplificado
 

@@ -14,13 +14,22 @@ export interface DocumentSnapshot {
   hasFile: boolean
 }
 
-export type DocumentResult = { status: 'ok' | 'cancelled' } | { status: 'error'; message: string }
+export type DocumentResult = { status: 'ok' } | { status: 'cancelled' } | { status: 'error'; message: string }
+
+export interface DocumentPrintSnapshot {
+  documentId: string
+  revision: number
+}
+
+export type DocumentPreviewResult = ({ status: 'ok'; pdf: Uint8Array } & DocumentPrintSnapshot)
+  | Exclude<DocumentResult, { status: 'ok' }>
 
 export interface DocumentBridge {
   current(): Promise<DocumentSnapshot>
   open(): Promise<DocumentResult>
   save(asCopy?: boolean): Promise<DocumentResult>
-  print(settings: PageSettings): Promise<DocumentResult>
+  printPreview(settings: PageSettings): Promise<DocumentPreviewResult>
+  print(settings: PageSettings, snapshot?: DocumentPrintSnapshot): Promise<DocumentResult>
   update(id: string, content: string): Promise<DocumentResult>
   imageSource(id: string, source: string): Promise<string | null>
   onDocument(callback: (document: DocumentSnapshot) => void): () => void

@@ -31,10 +31,12 @@ Aplicar confirma el formato; Cancelar o Escape descarta los cambios del diálogo
 
 ## Imprimir
 
-**Imprimir** o **Ctrl+P** prepara el contenido visual actual y abre el diálogo de impresión del sistema. Puede iniciarse desde cualquiera de las vistas, sin guardar el archivo primero. Se espera la sincronización de las ediciones antes de imprimir.
+**Imprimir** o **Ctrl+P** prepara el contenido visual actual y abre **Vista previa de impresión** dentro de hiloo. Puede iniciarse desde cualquiera de las vistas, sin guardar el archivo primero. Se esperan la sincronización de ediciones, fuentes, imágenes y flujos Mermaid antes de generar el PDF temporal en memoria.
+
+La vista previa muestra una página real del PDF, con **Anterior**, **Siguiente** y un contador. **Cancelar** o Escape cierra la vista sin imprimir. **Imprimir** dentro de la vista abre el diálogo del sistema. Mientras se revisa el PDF, el documento y el formato permanecen bloqueados; la confirmación comprueba que siguen correspondiendo a la revisión previsualizada. El PDF no se guarda ni exporta y tiene un límite de 20 MiB.
 
 La salida usa el tamaño elegido y márgenes de 15 mm, texto oscuro sobre fondo blanco y reglas propias para tablas, imágenes y código. Excluye barras, botones, avisos y el editor de código. El contenido largo fluye entre páginas; la vista de edición no es una previsualización paginada.
 
-La aplicación solicita las medidas al controlador de impresión; la impresora y su controlador deben admitir el papel seleccionado. Revisar en el diálogo nativo cualquier ajuste del controlador. Cancelar la impresión conserva el contenido y permite continuar editando. La aplicación no guarda el documento como efecto de imprimir ni envía trabajos silenciosos.
+La aplicación solicita las medidas al controlador de impresión; la impresora y su controlador deben admitir el papel seleccionado. Revisar en el diálogo nativo cualquier ajuste del controlador. Windows puede indicar que no admite vista previa en ese diálogo: la previsualización se realiza previamente dentro de hiloo. Cancelar la impresión conserva el contenido y permite continuar editando. La aplicación no guarda el documento como efecto de imprimir ni envía trabajos silenciosos.
 
-La integración usa el puente acotado `documents.print`, validación de origen IPC y validación de formato en el proceso principal. Las unidades de Electron se documentan en [webContents.print](https://www.electronjs.org/docs/latest/api/web-contents#contentsprintoptions-callback).
+La integración usa los puentes acotados `documents.printPreview` y `documents.print`, con validación de origen IPC, formato y revisión en el proceso principal. PDF.js dibuja el PDF en un lienzo con un worker local, sin marcos, enlaces activos ni scripts del documento. Las unidades de Electron se documentan en [webContents.print](https://www.electronjs.org/docs/latest/api/web-contents#contentsprintoptions-callback).
