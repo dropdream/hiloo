@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DocumentBridge, DocumentSnapshot } from '../shared/documents'
+import type { AppearanceBridge } from '../shared/window'
 
 const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
   open: () => ipcRenderer.invoke('document:open'),
   save: (asCopy = false) => ipcRenderer.invoke('document:save', asCopy),
+  print: (settings) => ipcRenderer.invoke('document:print', settings),
   update: (id, content) => ipcRenderer.invoke('document:update', id, content),
   imageSource: (id, source) => ipcRenderer.invoke('document:image-source', id, source),
   onDocument: (callback) => {
@@ -33,3 +35,9 @@ const api: DocumentBridge = {
 }
 
 contextBridge.exposeInMainWorld('documents', api)
+
+const appearance: AppearanceBridge = {
+  setTheme: (theme) => ipcRenderer.invoke('window:theme', theme)
+}
+
+contextBridge.exposeInMainWorld('appearance', appearance)

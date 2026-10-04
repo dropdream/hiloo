@@ -127,7 +127,7 @@ La interfaz React se ejecuta en el renderer, aislado y sin acceso directo a Node
 
 El instalador registrará compatibilidad con `.md` y `.markdown` para aparecer en «Abrir con». El usuario decidirá si hiloo será la aplicación predeterminada. Se recibirán rutas tanto al arrancar como cuando una instancia ya esté abierta.
 
-La exportación producirá HTML con el CSS seleccionado. Electron permitirá imprimirlo y generar PDF; la vista previa y las reglas de paginación requieren implementación y validación propias.
+La exportación producirá HTML con el CSS seleccionado. La integración del visualizador ya permite alternar código Markdown y edición visual, elegir formato de página e imprimir mediante Electron con CSS de impresión. La exportación directa HTML/PDF y una vista previa paginada siguen pendientes. Véase [vistas e impresión](docs/vistas-e-impresion.md).
 
 ## Entregas iniciales
 

@@ -1,6 +1,6 @@
 # Tema de la interfaz — entrega 2
 
-Contrato inicial de estilos implementados. Las variables están en `src/renderer/src/global.css`; los estilos privados usan CSS Modules. No hay importador ni selector de temas: los ejemplos requieren modificar el código y recompilar. No se persisten preferencias ni se sigue automáticamente el tema de Windows.
+Las variables están en `src/renderer/src/global.css`; los estilos privados usan CSS Modules. El selector **Día / Noche** cambia la interfaz entre fondo blanco y el azul original, incluidos los controles nativos de ventana. **Vista impresión** tiene un fondo independiente: Papel blanco inicialmente, o Fondo noche a elección del usuario. La salida impresa siempre usa blanco. El tema inicial del sistema es Noche; no se persisten preferencias ni se sigue automáticamente el tema de Windows. No hay importador de temas personalizados: los ejemplos siguientes requieren modificar el código y recompilar. La tabla describe los valores nocturnos de partida.
 
 | Variable | Predeterminado | Tipo y alcance |
 | --- | --- | --- |
@@ -12,9 +12,11 @@ Contrato inicial de estilos implementados. Las variables están en `src/renderer
 | `--hiloo-accent` | `#85c7ee` | Color de foco, controles activos, cursor, citas y enlaces. |
 | `--hiloo-hover` | `#2e5271` | Color de fondo al pasar el puntero. |
 | `--hiloo-active` | `#294d6b` | Color de fondo de herramientas activas. |
+| `--hiloo-selection` | `#387096` | Fondo de selección de texto en el editor de código. |
+| `--hiloo-on-accent` | `#203f5d` | Texto sobre botones con fondo de acento. |
 | `--hiloo-ui-font` | `'Segoe UI', system-ui, sans-serif` | Familia tipográfica de controles y títulos del documento. |
 
-Cada color acepta un valor CSS válido. Los valores definidos en `:root` alcanzan también los portales Radix. Una sobrescritura solo dentro de un componente no alcanza sus portales. Las declaraciones inválidas siguen las reglas normales de CSS; no existe validador de temas. Espaciados, radios, selección (`#387096`), color de error y opacidad deshabilitada todavía son reglas internas.
+Cada color acepta un valor CSS válido. Los valores definidos en `:root` alcanzan también los portales Radix. El modo Día los sobrescribe mediante `html[data-theme='day']`; la vista de impresión delimita su propia paleta de papel blanco. Una sobrescritura solo dentro de un componente no alcanza sus portales. Las declaraciones inválidas siguen las reglas normales de CSS; no existe validador de temas personalizados. Espaciados, radios, color de error y opacidad deshabilitada todavía son reglas internas.
 
 Ejemplo de variación, al final de `global.css`:
 
@@ -27,7 +29,7 @@ Ejemplo de variación, al final de `global.css`:
 }
 ```
 
-El fondo inicial y los símbolos de los controles nativos provienen de `src/shared/window.ts`. Para cambiar toda la ventana, ajustar allí `windowBackground` y `windowControlsColor`, reiniciar y recompilar. `main.tsx` inicializa la variable de fondo con un estilo inline: cambiarla solo en una hoja CSS no sustituye esa inicialización. La variable interna `--hiloo-titlebar-height` sincroniza la región de arrastre con los controles; no forma parte del tema público.
+El fondo inicial, los colores Día/Noche y los símbolos de los controles nativos provienen de `src/shared/window.ts`. El selector usa `window.appearance.setTheme` para actualizar fondo y botones nativos mediante IPC validado. Cambiar únicamente CSS en ejecución no sincroniza esos controles. La variable interna `--hiloo-titlebar-height` sincroniza la región de arrastre con los controles; no forma parte del tema público.
 
 Los botones tienen nombre accesible, tooltip y foco de 2 px con el color de acento. Los formatos activos exponen `aria-pressed`; el selector de bloque es Radix Select. El área editable usa cursor de acento como indicación de foco. Cambiar colores exige volver a comprobar contraste, selección y foco. La barra se distribuye en más de una fila en ventanas estrechas; el mínimo es 420 × 300 unidades lógicas. No es una certificación completa WCAG ni una prueba con lector de pantalla.
 

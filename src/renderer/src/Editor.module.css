@@ -41,3 +41,20 @@
 .surface :global(.ProseMirror-trailingBreak) { display: initial; }
 .original { color: var(--hiloo-text); white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.7 Consolas, monospace; }
 @media (max-width: 600px) { .surface { padding: 26px 24px 64px; } }
+@media print {
+  .surface { max-width: none; min-height: 0; margin: 0; padding: 0; }
+  .surface :global(.hiloo-document) { min-height: 0; color: #000; }
+  .surface :global(.hiloo-document h1), .surface :global(.hiloo-document h2), .surface :global(.hiloo-document h3), .surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { break-after: avoid; }
+  .surface :global(.hiloo-document p) { orphans: 3; widows: 3; }
+  .surface :global(.hiloo-document a), .surface :global(.hiloo-document blockquote), .surface :global(.hiloo-document li[data-checked='true'] > .list-item-content > p) { color: #000; }
+  .surface :global(.document-table) { overflow: visible; }
+  .surface :global(.hiloo-document table) { min-width: 0; width: 100%; table-layout: fixed; }
+  .surface :global(.hiloo-document th), .surface :global(.hiloo-document td) { min-width: 0; padding: .35em; overflow-wrap: anywhere; background: #fff; }
+  .surface :global(.hiloo-document tr) { break-inside: avoid; }
+  .surface :global(.hiloo-document pre) { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; background: #fff; }
+  .surface :global(.hiloo-document pre code) { white-space: pre-wrap; }
+  .surface :global(.document-image) { break-inside: avoid; }
+  .surface :global(.document-image img) { width: auto; max-width: 100%; max-height: var(--hiloo-print-height); object-fit: contain; }
+  .surface :global(.ProseMirror-selectednode) { outline: none; }
+  .surface :global(.hiloo-document .selectedCell::after) { display: none; }
+}

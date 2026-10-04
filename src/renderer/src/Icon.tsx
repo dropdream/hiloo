@@ -4,6 +4,8 @@ const paths = {
   open: 'M3 7h6l2 2h10l-3 10H3V7Zm0 0V4h6l2 3h7v2',
   save: 'M5 3h12l3 3v15H4V3h1Zm3 0v6h8V3M8 21v-8h8v8',
   copy: 'M9 8V3h8l3 3v12h-5M9 3v5h6v13H4V8h5Zm6 0v5h5',
+  page: 'M5 2h14v20H5V2Zm3 5h8M8 11h8M8 15h5',
+  print: 'M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6v-7Zm11-3h1',
   bold: 'M7 4h6a4 4 0 0 1 0 8H7m0-8v16h7a4 4 0 0 0 0-8H7',
   italic: 'M11 4h8M5 20h8M15 4 9 20',
   strike: 'M17 5c-2-2-9-2-9 2 0 2 2 3 4 3M4 12h16M8 18c2 2 9 2 9-2 0-1-1-2-3-3',
