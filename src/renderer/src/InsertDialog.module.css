@@ -10,8 +10,8 @@
 .dialog button { min-height: 36px; padding: 7px 12px; border: 1px solid var(--hiloo-border); border-radius: 4px; background: transparent; color: var(--hiloo-text); font: inherit; cursor: pointer; }
 .dialog button:hover:not(:disabled) { background: var(--hiloo-hover); }
 .dialog button:disabled, .dialog input:disabled { opacity: .45; cursor: default; }
-.dialog .primary { background: var(--hiloo-accent); border-color: var(--hiloo-accent); color: var(--hiloo-bar); font-weight: 600; }
-.dialog .primary:hover:not(:disabled) { background: var(--hiloo-text); }
+.dialog .primary { background: var(--hiloo-accent); border-color: var(--hiloo-accent); color: var(--hiloo-on-accent); font-weight: 600; }
+.dialog .primary:hover:not(:disabled) { background: var(--hiloo-accent); filter: brightness(1.1); }
 .dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .tableTools { display: grid; gap: 16px; }
 .tableTools fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }

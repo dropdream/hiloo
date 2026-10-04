@@ -9,7 +9,7 @@ import { lift, setBlockType, toggleMark, wrapIn } from '@milkdown/kit/prose/comm
 import { liftListItem, wrapInList } from '@milkdown/kit/prose/schema-list'
 import { $prose } from '@milkdown/kit/utils'
 import { maxDocumentBytes } from '../../shared/documents'
-import { markdownSignature } from '../../shared/markdown'
+import { markdownProblem, markdownSignature } from '../../shared/markdown'
 import { editTable, insertTable, removeImage, removeLink, selectedImage, selectedLink, setImage, setLink, toggleTask, type TableAction, type LinkValue, type ImageValue } from './editor-actions'
 import { editorNodeViews } from './editor-node-views'
 import styles from './Editor.module.css'
@@ -35,6 +35,8 @@ export const emptySelection: SelectionState = { bold: false, italic: false, stri
 export interface EditorController {
   format(action: Format, level?: string): void
   markSaved(source: string): boolean
+  replaceSource(source: string): string | null
+  visualReady(): boolean
   setEditable(value: boolean): void
   focus(): void
   insertTable(rows: number, columns: number): boolean
@@ -88,6 +90,8 @@ export function MarkdownEditor(props: Props) {
     let editable = true
     let baseline = ''
     let lastSelection = ''
+    let replacing = false
+    let conversionBlocked = false
     const reportSelection = (state: EditorState) => {
       const value = selectionState(state)
       const key = JSON.stringify(value)
@@ -104,7 +108,7 @@ export function MarkdownEditor(props: Props) {
       view: () => ({ update: (view, previous) => {
         if (!ready || disposed) return
         reportSelection(view.state)
-        if (!view.state.doc.eq(previous.doc)) {
+        if (!replacing && !view.state.doc.eq(previous.doc)) {
           const markdown = ctx.get(serializerCtx)(view.state.doc)
           callbacks.current.onChange(markdown, markdown === baseline)
         }
@@ -156,9 +160,9 @@ export function MarkdownEditor(props: Props) {
       baseline = savedBaseline(initialSavedSource.current)
       if (markdownSignature(initialSource.current) !== markdownSignature(canonical)) {
         editable = false
+        conversionBlocked = true
         setBlocked(true)
         callbacks.current.onError('La conversión visual cambiaría la estructura de este archivo. Se muestra el original en solo lectura; no se ha modificado.')
-        return
       }
       ready = true
       reportSelection(view.state)
@@ -175,10 +179,39 @@ export function MarkdownEditor(props: Props) {
         }
       }
       callbacks.current.onReady({
+        visualReady: () => !conversionBlocked,
+        replaceSource: (source) => {
+          try {
+            const problem = markdownProblem(source)
+            if (problem) return `${problem.split('. El archivo')[0]}. El código se conserva en Markdown; corrígelo para usar la vista impresión o imprimir.`
+            const next = editor.ctx.get(parserCtx)(source)
+            const canonical = editor.ctx.get(serializerCtx)(next)
+            if (new TextEncoder().encode(canonical).length > maxDocumentBytes) {
+              return 'La conversión supera el límite de 2 MB. El código se conserva en Markdown; reduce el contenido antes de cambiar de vista o imprimir.'
+            }
+            if (markdownSignature(source) !== markdownSignature(canonical)) {
+              return 'La vista impresión cambiaría la estructura del contenido. El código se conserva en Markdown; revísalo antes de cambiar de vista o imprimir.'
+            }
+            // Milkdown assigns heading IDs after dispatch; compare serialized
+            // content so those visual attributes do not reset history or reject edits.
+            const replacingContent = serialize() !== canonical
+            if (replacingContent) {
+              replacing = true
+              try { view.dispatch(closeHistory(view.state.tr.replaceWith(0, view.state.doc.content.size, next.content))) }
+              finally { replacing = false }
+            }
+            if (serialize() !== canonical) return 'No se pudo aplicar la conversión. El código se conserva en Markdown; revísalo antes de cambiar de vista o imprimir.'
+            // Keep the first visual keystroke separate from the source replacement.
+            if (replacingContent) view.dispatch(closeHistory(view.state.tr))
+            conversionBlocked = false
+            setBlocked(false)
+            return null
+          } catch { return 'No se pudo convertir el código. El contenido se conserva en Markdown para que puedas corregirlo.' }
+        },
         markSaved: (source) => { baseline = savedBaseline(source); return serialize() === baseline },
         focus: () => view.focus(),
         setEditable: (value) => {
-          editable = value
+          editable = value && !conversionBlocked
           view.setProps({ editable: () => editable })
           host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => { checkbox.disabled = !editable })
         },

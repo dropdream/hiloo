@@ -13,3 +13,4 @@
 .tooltip { display: flex; align-items: center; gap: 18px; background: var(--hiloo-bar); border: 1px solid var(--hiloo-border); color: var(--hiloo-text); padding: 7px 10px; border-radius: 4px; font-size: 12px; z-index: 30; pointer-events: none; }
 .tooltip kbd { color: var(--hiloo-muted); font: 10px var(--hiloo-ui-font); }
 @media (max-width: 700px) { .toolbar { gap: 4px; padding: 7px 10px; } .separator { display: none; } }
+@media print { .toolbar, .tooltip, .menu { display: none !important; } }
