@@ -113,6 +113,7 @@ test('original sin editar conserva bytes, BOM y CRLF; formatos no admitidos no s
   const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
   await expect(editor.locator('h1')).toHaveText('Título')
   await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
   expect(await fs.readFile(path)).toEqual(bytes)
   await editor.press('Control+End')
   await page.keyboard.insertText(' Cambio temporal.')

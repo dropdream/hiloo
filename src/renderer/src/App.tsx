@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { maxDocumentBytes, type DocumentSnapshot, type DocumentResult } from '../../shared/documents'
 import { defaultPageSettings, pageMarginMm, type PageSettings } from '../../shared/printing'
 import type { WindowTheme } from '../../shared/window'
-import type { WorkspaceSnapshot } from '../../shared/workspace'
+import type { RecentWorkspace, WorkspaceSnapshot } from '../../shared/workspace'
 import { MarkdownEditor, emptySelection, type EditorController } from './editor'
 import { EditorToolbar } from './Toolbar'
 import { PageControls } from './PageControls'
@@ -30,6 +30,10 @@ export function App() {
   const [theme, setTheme] = useState<WindowTheme>('night')
   const [paperTheme, setPaperTheme] = useState<WindowTheme>('day')
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null)
+  const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspace[]>([])
+  const [recentLoading, setRecentLoading] = useState(true)
+  const [recentError, setRecentError] = useState('')
+  const recentRequest = useRef(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [brainOpen, setBrainOpen] = useState(false)
   const [focusDocument, setFocusDocument] = useState(false)
@@ -113,6 +117,31 @@ export function App() {
     return () => { active = false; unsubscribe() }
   }, [])
 
+  const loadRecentWorkspaces = useCallback(async () => {
+    const request = ++recentRequest.current
+    setRecentLoading(true)
+    setRecentError('')
+    try {
+      const items = await window.workspace.recent()
+      if (request === recentRequest.current) setRecentWorkspaces(items)
+    } catch {
+      if (request === recentRequest.current) setRecentError('No se pudieron cargar los cuadernos recientes. Vuelve a intentarlo.')
+    } finally {
+      if (request === recentRequest.current) setRecentLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.workspace.onRecentChange((items) => {
+      recentRequest.current++
+      setRecentWorkspaces(items)
+      setRecentLoading(false)
+      setRecentError('')
+    })
+    void loadRecentWorkspaces()
+    return () => { recentRequest.current++; unsubscribe() }
+  }, [loadRecentWorkspaces])
+
   const closeSidebar = () => {
     setSidebarOpen(false)
     sidebarButton.current?.focus()
@@ -158,7 +187,7 @@ export function App() {
     return () => window.removeEventListener('keydown', keydown)
   }, [sidebarOpen, narrow])
 
-  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }): Promise<boolean> => {
+  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create' | 'recent', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }): Promise<boolean> => {
     if (locked.current) return false
     locked.current = true
     setOperation('open')
@@ -170,24 +199,26 @@ export function App() {
       if (failure) throw new Error(failure)
       const result = action === 'open'
         ? await window.workspace.open(noteId ?? '')
-        : action === 'create'
-          ? await window.workspace.create(noteId ?? '', creation?.name ?? '', creation?.kind ?? 'note')
-          : await window.workspace[action]()
+        : action === 'recent'
+          ? await window.workspace.openRecent(noteId ?? '')
+          : action === 'create'
+            ? await window.workspace.create(noteId ?? '', creation?.name ?? '', creation?.kind ?? 'note')
+            : await window.workspace[action]()
       if (result.status === 'error') {
-        if (action === 'create') throw new Error(result.message)
+        if (action === 'create' || action === 'recent') throw new Error(result.message)
         setError(result.message)
         if (window.innerWidth <= 700) setSidebarOpen(false)
       }
       if (result.status !== 'ok') return false
       const opensNote = action === 'open' || (action === 'create' && creation?.kind === 'note')
-      if (action === 'choose' || opensNote) setBrainOpen(false)
+      if (action === 'choose' || action === 'recent' || opensNote) setBrainOpen(false)
       if (opensNote) {
         if (window.innerWidth <= 700) setSidebarOpen(false)
         setFocusDocument(true)
       }
       return true
     } catch (failure) {
-      if (action === 'create') throw failure
+      if (action === 'create' || action === 'recent') throw failure
       setError(failure instanceof Error ? failure.message : 'No se pudo abrir el cuaderno.')
       if (window.innerWidth <= 700) setSidebarOpen(false)
       return false
@@ -335,7 +366,7 @@ export function App() {
       {sidebarOpen ? <>
         <button type="button" className={styles.scrim} aria-label="Cerrar panel del cuaderno" onClick={closeSidebar} />
         <div ref={sidebarPanel} className={styles.sidebar} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeSidebar() } }}>
-          <Sidebar key={workspace?.id ?? 'empty'} workspace={workspace} busy={busy} brainOpen={brainOpen} onChoose={() => { void runWorkspace('choose') }} onRefresh={() => { void runWorkspace('refresh') }} onOpen={(id) => { void runWorkspace('open', id) }} onCreate={(parentId, name, kind) => runWorkspace('create', parentId, { name, kind })} onBrain={() => { void openBrain() }} onClose={closeSidebar} />
+          <Sidebar key={workspace?.id ?? 'empty'} workspace={workspace} busy={busy} brainOpen={brainOpen} recentWorkspaces={recentWorkspaces} recentLoading={recentLoading} recentError={recentError} onRetryRecent={() => { void loadRecentWorkspaces() }} onOpenRecent={(id) => runWorkspace('recent', id)} onChoose={() => { void runWorkspace('choose') }} onRefresh={() => { void runWorkspace('refresh') }} onOpen={(id) => { void runWorkspace('open', id) }} onCreate={(parentId, name, kind) => runWorkspace('create', parentId, { name, kind })} onBrain={() => { void openBrain() }} onClose={closeSidebar} />
         </div>
       </> : null}
       <div className={styles.content} inert={sidebarOpen && narrow}>

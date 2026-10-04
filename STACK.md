@@ -1,6 +1,6 @@
 # hiloo — Definición inicial del producto y stack
 
-Fecha: 2026-10-03. Estado: entregas 1 y 2, navegación básica de cuadernos y Cerebro implementados localmente; índices automáticos, catálogo de cuadernos, historial persistente y exportación pendientes.
+Fecha: 2026-10-04. Estado: entregas 1 y 2, navegación básica de cuadernos, recientes persistentes, Cerebro e índice global SQLite para IA implementados localmente; índices Markdown automáticos, historial persistente y exportación pendientes.
 
 ## Identidad y objetivo
 
@@ -8,7 +8,7 @@ Fecha: 2026-10-03. Estado: entregas 1 y 2, navegación básica de cuadernos y Ce
 
 Lector y editor visual de Markdown para Windows, sencillo de usar como un bloc de notas con barra de formato. El usuario escribe sobre texto estilizado y la aplicación guarda documentos `.md` legibles desde otras herramientas. Los documentos pueden organizarse en cuadernos y relacionarse entre sí.
 
-La aplicación no integra IA. Se creará un skill independiente para que herramientas de IA externas sepan leer, navegar y modificar los cuadernos.
+La aplicación no integra un modelo de IA. El skill independiente [hiloo-notes](skills/hiloo-notes/SKILL.md) permite a herramientas de IA externas descubrir el catálogo, consultar y guardar notas con las capacidades actuales.
 
 ## Stack de partida
 
@@ -22,12 +22,13 @@ La aplicación no integra IA. Se creará un skill independiente para que herrami
 | Desarrollo y compilación | electron-vite | Entorno de desarrollo y compilación de Electron con React y TypeScript. |
 | Edición visual | Milkdown CommonMark, basado en ProseMirror | Edición visual y lectura/escritura de formatos admitidos; integración directa sin Crepe. |
 | Documentos | Sistema de archivos: carpetas y `.md` | Almacenamiento principal, accesible por humanos y herramientas externas. |
+| Índice global para IA | SQLite integrado en Electron + FTS5 | Catálogo, fragmentos, búsqueda y enlaces manuales; CLI y puente restringido. |
 | Historial persistente | SQLite | Base propuesta para versiones anteriores y registro de operaciones; no reemplaza los documentos Markdown. |
 | Preferencias | JSON local | Ajustes de la aplicación y últimos cuadernos. |
 | Exportación | HTML + CSS personalizado | Documentos compartibles, estilos corporativos y preparación para impresión. |
 | Distribución | electron-builder con instalador NSIS | Instalador de Windows y registro de asociaciones de archivos. |
 
-La entrega 1 usa Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React/React DOM 19.3.0, TypeScript 5.9.3, electron-builder 26.15.3 y Playwright 1.63.0. Las versiones exactas están fijadas en `package.json` y `package-lock.json`. Vite 7 mantiene compatibilidad con electron-vite 5 y el plugin React 5. La entrega 2 incorpora Milkdown 7.22.2 y Radix Toolbar 1.1.19, Select 2.3.7 y Tooltip 1.2.16. SQLite y su controlador siguen pendientes. El manifiesto y el lockfile fijan todas las versiones.
+La entrega 1 usa Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React/React DOM 19.3.0, TypeScript 5.9.3, electron-builder 26.15.3 y Playwright 1.63.0. Las versiones exactas están fijadas en `package.json` y `package-lock.json`. Vite 7 mantiene compatibilidad con electron-vite 5 y el plugin React 5. La entrega 2 incorpora Milkdown 7.22.2 y Radix Toolbar 1.1.19, Select 2.3.7 y Tooltip 1.2.16. SQLite se utiliza para el índice global mediante node:sqlite del runtime de Electron, sin controlador externo; el historial de versiones sigue pendiente. El manifiesto y el lockfile fijan todas las versiones.
 
 ## Tecnología visual confirmada
 
@@ -39,7 +40,7 @@ Habrá dos ámbitos de personalización independientes: el tema de la aplicació
 
 ## Documentación pública requerida
 
-La base implementada de los dos contratos CSS está en [tema de interfaz](docs/tema-interfaz.md) y [estilo Markdown](docs/estilo-markdown.md), con variables, selectores, ejemplos y límites actuales. El siguiente alcance ampliado y el skill externo permanecen como planificación. Se documentarán al detalle los siguientes tres contratos. Esta sección define su alcance; los nombres finales de variables, selectores, archivos y comandos se concretarán y verificarán al implementarlos. Los ejemplos se mantendrán sincronizados con la aplicación.
+La base implementada de los dos contratos CSS está en [tema de interfaz](docs/tema-interfaz.md) y [estilo Markdown](docs/estilo-markdown.md), con variables, selectores, ejemplos y límites actuales. El siguiente alcance ampliado de personalización permanece como planificación; la versión inicial del skill externo ya está disponible. Se documentarán al detalle los siguientes tres contratos. Esta sección define su alcance; los nombres finales de variables, selectores, archivos y comandos se concretarán y verificarán al implementarlos. Los ejemplos se mantendrán sincronizados con la aplicación.
 
 ### 1. CSS para temas del sistema
 
@@ -69,7 +70,7 @@ El Markdown conservará la estructura y el contenido. La presentación se defini
 
 ### 3. Skill para herramientas de IA
 
-Se entregará un `SKILL.md` independiente, acompañado de referencias y ejemplos cuando corresponda, para que herramientas externas trabajen con cuadernos sin requerir IA integrada en hiloo.
+Se entrega [hiloo-notes](skills/hiloo-notes/SKILL.md), con referencias de consulta y guardado, para trabajar desde herramientas externas sin un modelo integrado en hiloo. Empieza consultando el catálogo SQLite de cuadernos registrados. El siguiente listado conserva el alcance ampliado del producto; los índices Markdown automáticos, el mantenimiento automático al mover notas y el historial de versiones siguen pendientes.
 
 - Propósito, cuándo usarlo, instalación o activación y limitaciones de las herramientas compatibles.
 - Cómo localizar la raíz del cuaderno, leer su documento de orientación y recorrer el índice antes de modificar notas.
@@ -80,7 +81,7 @@ Se entregará un `SKILL.md` independiente, acompañado de referencias y ejemplos
 - Límites de modificación: operar sobre documentos y mecanismos públicos; no editar directamente la base privada de historial.
 - Ejemplos completos y verificaciones posteriores: enlaces existentes, índice coherente y contenido preservado.
 
-El skill documentará el comportamiento efectivamente implementado. Los procedimientos no disponibles se identificarán como pendientes.
+El skill documenta el comportamiento implementado y distingue las operaciones manuales de las funcionalidades todavía pendientes.
 
 ## Organización de cuadernos
 
@@ -125,7 +126,7 @@ Quedan pendientes frecuencia y retención de versiones, ubicación de la base, i
 
 ## Arquitectura local e integración con Windows
 
-La interfaz React se ejecuta en el renderer, aislado y sin acceso directo a Node. Desde la entrega 2, el proceso principal gestiona diálogos y archivos mediante preload/contextBridge e IPC acotados y validados. Milkdown se ejecuta en el renderer con sandbox. SQLite e integración adicional con el sistema siguen pendientes.
+La interfaz React se ejecuta en el renderer, aislado y sin acceso directo a Node. Desde la entrega 2, el proceso principal gestiona diálogos y archivos mediante preload/contextBridge e IPC acotados y validados. Milkdown se ejecuta en el renderer con sandbox. El índice global SQLite y su CLI están implementados; el historial de versiones y la integración adicional con el sistema siguen pendientes.
 
 El instalador registrará compatibilidad con `.md` y `.markdown` para aparecer en «Abrir con». El usuario decidirá si hiloo será la aplicación predeterminada. Se recibirán rutas tanto al arrancar como cuando una instancia ya esté abierta.
 
@@ -177,7 +178,7 @@ El diálogo **Enlace** permite buscar y seleccionar una nota del cuaderno sin es
 
 Incluye etiquetas discretas, información al pasar el puntero, vista previa por clic y apertura explícita de la nota, zoom, ajuste y lista de notas/conexiones accesible con teclado; la búsqueda por nombre/ruta está en el árbol del sidebar. Los destinos inexistentes o exteriores se omiten, y Actualizar vuelve a explorar el disco. Los límites y exclusiones están en [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md).
 
-Siguen pendientes los filtros por sección, la vista local de vecinos, el mantenimiento de enlaces al mover/renombrar archivos y la exclusión de relaciones de un futuro índice automático. No hay catálogo persistente ni vigilancia automática. La visualización de diagramas dentro de una nota es otro alcance: [investigación de Mermaid, D2 y PlantUML](docs/investigacion-diagramas.md).
+Siguen pendientes los filtros por sección, la vista local de vecinos, el mantenimiento de enlaces al mover/renombrar archivos y la exclusión de relaciones de un futuro índice automático. La lista de los últimos diez cuadernos se conserva en JSON local; no hay vigilancia automática. La visualización de diagramas dentro de una nota es otro alcance: [investigación de Mermaid, D2 y PlantUML](docs/investigacion-diagramas.md).
 
 ## Referencias técnicas
 
@@ -189,3 +190,7 @@ Siguen pendientes los filtros por sección, la vista local de vecinos, el manten
 - [ProseMirror](https://prosemirror.net/docs/guide/)
 - [SQLite](https://www.sqlite.org/lang_transaction.html)
 - [electron-builder / NSIS](https://www.electron.build/docs/nsis/)
+
+## Índice global para IA — implementación inicial
+
+El catálogo SQLite conserva cuadernos registrados, nodos de carpetas/notas y relaciones manuales entre ellos. Los fragmentos, FTS5 y enlaces Markdown se actualizan desde disco. La CLI permite descubrir cuadernos primero, buscar con presupuestos de caracteres y leer solo fragmentos verificados. La base contiene información durable: reindexar no equivale a borrarla. La vista gráfica actual sigue limitada al cuaderno activo. Detalles, límites y comandos: [Cerebro SQLite](docs/cerebro-sqlite.md). El skill externo [hiloo-notes](skills/hiloo-notes/SKILL.md) describe consulta y guardado con las capacidades implementadas.
