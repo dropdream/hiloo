@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DocumentBridge, DocumentSnapshot } from '../shared/documents'
+import type { DocumentBridge, DocumentSnapshot, RecentDocument } from '../shared/documents'
+import type { SettingsBridge } from '../shared/settings'
 import type { AppearanceBridge } from '../shared/window'
 import type { RecentWorkspace, WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
 import type { BrainBridge } from '../shared/brain'
@@ -7,6 +8,13 @@ import type { BrainBridge } from '../shared/brain'
 const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
   open: () => ipcRenderer.invoke('document:open'),
+  recent: () => ipcRenderer.invoke('document:recent'),
+  openRecent: (id) => ipcRenderer.invoke('document:open-recent', id),
+  onRecentChange: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, value: RecentDocument[]) => callback(value)
+    ipcRenderer.on('document:recent-changed', listener)
+    return () => { ipcRenderer.removeListener('document:recent-changed', listener) }
+  },
   save: (asCopy = false) => ipcRenderer.invoke('document:save', asCopy),
   printPreview: (settings) => ipcRenderer.invoke('document:print-preview', settings),
   print: (settings, snapshot) => ipcRenderer.invoke('document:print', settings, snapshot),
@@ -44,6 +52,13 @@ const appearance: AppearanceBridge = {
 }
 
 contextBridge.exposeInMainWorld('appearance', appearance)
+
+const settings: SettingsBridge = {
+  printStyle: () => ipcRenderer.invoke('settings:print-style'),
+  setPrintStyle: (css) => ipcRenderer.invoke('settings:set-print-style', css)
+}
+
+contextBridge.exposeInMainWorld('settings', settings)
 
 const workspace: WorkspaceBridge = {
   current: () => ipcRenderer.invoke('workspace:current'),

@@ -7,6 +7,13 @@
 .sidebar .iconButton { flex: 0 0 26px; justify-content: center; padding: 4px; }
 .sidebar svg { width: 13px; height: 13px; flex-shrink: 0; }
 .sidebar { overflow-y: auto; overscroll-behavior: contain; }
+.menu { flex-shrink: 0; margin: 4px 8px 0; }
+.menuBar { display: grid; gap: 2px; padding-bottom: 6px; border-bottom: 1px solid var(--hiloo-border); }
+.sidebar .menuBar button { width: 100%; min-width: 0; padding: 4px 7px; white-space: nowrap; }
+.sidebar .menuBar button span { overflow: hidden; text-overflow: ellipsis; }
+.sidebar .menuBar button[aria-expanded='true'] { color: var(--hiloo-accent); background: var(--hiloo-active); }
+.menu .recentPanel { margin: 6px 0 2px; }
+.settingHint { display: block; color: var(--hiloo-muted); font-size: 10px; }
 .recent { flex-shrink: 0; margin: 4px 8px 8px; }
 .sidebar .recentToggle { width: 100%; padding: 4px 7px; border-color: var(--hiloo-border); }
 .recentToggle[aria-expanded='true'] { color: var(--hiloo-accent); background: var(--hiloo-active); }

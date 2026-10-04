@@ -2,16 +2,30 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { maxDocumentBytes, type DocumentSnapshot, type DocumentResult, type DocumentPreviewResult } from '../../shared/documents'
 import { defaultPageSettings, pageMarginMm, type PageSettings } from '../../shared/printing'
 import type { WindowTheme } from '../../shared/window'
-import type { RecentWorkspace, WorkspaceSnapshot } from '../../shared/workspace'
+import type { WorkspaceSnapshot } from '../../shared/workspace'
+import { scopedPrintStyle } from '../../shared/settings'
 import { MarkdownEditor, emptySelection, type EditorController } from './editor'
 import { EditorToolbar } from './Toolbar'
 import { PageControls } from './PageControls'
+import { PrintStyleDialog } from './PrintStyleDialog'
 import { Sidebar } from './Sidebar'
+import { ZoomBar, clampZoom, zoomStep } from './ZoomBar'
+import { useRecentList } from './use-recent-list'
 import { Icon } from './Icon'
 import styles from './App.module.css'
 
 const Brain = lazy(() => import('./Brain').then((module) => ({ default: module.Brain })))
 const PrintPreview = lazy(() => import('./PrintPreview').then((module) => ({ default: module.PrintPreview })))
+
+// Stable references for useRecentList.
+const loadRecentWorkspaces = () => window.workspace.recent()
+const subscribeRecentWorkspaces: typeof window.workspace.onRecentChange = (callback) => window.workspace.onRecentChange(callback)
+const loadRecentDocuments = () => window.documents.recent()
+const subscribeRecentDocuments: typeof window.documents.onRecentChange = (callback) => window.documents.onRecentChange(callback)
+
+// Width of the visual sheet at 100 %, including its side padding.
+const documentWidthPx = 860
+const sourceFontPx = 14
 
 // Textareas expose LF, while the main process preserves a file's CRLF on save.
 function sameSource(left: string, right: string): boolean {
@@ -34,13 +48,18 @@ export function App() {
   const [theme, setTheme] = useState<WindowTheme>('night')
   const [paperTheme, setPaperTheme] = useState<WindowTheme>('day')
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null)
-  const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspace[]>([])
-  const [recentLoading, setRecentLoading] = useState(true)
-  const [recentError, setRecentError] = useState('')
-  const recentRequest = useRef(0)
+  const recentWorkspaces = useRecentList(loadRecentWorkspaces, subscribeRecentWorkspaces, 'No se pudieron cargar los cuadernos recientes. Vuelve a intentarlo.')
+  const recentDocuments = useRecentList(loadRecentDocuments, subscribeRecentDocuments, 'No se pudieron cargar los documentos recientes. Vuelve a intentarlo.')
+  const [zoom, setZoom] = useState(100)
+  const [fitZoom, setFitZoom] = useState(false)
+  const workspaceArea = useRef<HTMLElement>(null)
+  const [printStyle, setPrintStyle] = useState('')
+  const [printStyleOpen, setPrintStyleOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [brainOpen, setBrainOpen] = useState(false)
   const [focusDocument, setFocusDocument] = useState(false)
+  // Element focused when a document-focus request began; another focused control means the user moved on.
+  const focusOrigin = useRef<Element | null>(null)
   const [narrow, setNarrow] = useState(() => window.innerWidth <= 700)
   const sidebarButton = useRef<HTMLButtonElement>(null)
   const sidebarPanel = useRef<HTMLDivElement>(null)
@@ -109,8 +128,12 @@ export function App() {
     // Focus only after React removes the drawer's inert background. A frame
     // scheduled from the IPC response can run before that DOM commit.
     if (!focusDocument || busy || brainOpen || (sidebarOpen && narrow) || (mode === 'visual' && !ready)) return
-    if (mode === 'markdown') sourceInput.current?.focus()
-    else controller.current?.focus()
+    const active = globalThis.document.activeElement
+    const movedOn = active && active !== globalThis.document.body && active !== focusOrigin.current && !workspaceArea.current?.contains(active)
+    if (!movedOn) {
+      if (mode === 'markdown') sourceInput.current?.focus()
+      else controller.current?.focus()
+    }
     setFocusDocument(false)
   }, [focusDocument, busy, brainOpen, sidebarOpen, narrow, mode, ready, document?.id])
 
@@ -127,30 +150,49 @@ export function App() {
     return () => { active = false; unsubscribe() }
   }, [])
 
-  const loadRecentWorkspaces = useCallback(async () => {
-    const request = ++recentRequest.current
-    setRecentLoading(true)
-    setRecentError('')
+  useEffect(() => {
+    let active = true
+    void window.settings.printStyle().then((css) => { if (active) setPrintStyle(css) }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  const savePrintStyle = async (css: string): Promise<string | null> => {
     try {
-      const items = await window.workspace.recent()
-      if (request === recentRequest.current) setRecentWorkspaces(items)
-    } catch {
-      if (request === recentRequest.current) setRecentError('No se pudieron cargar los cuadernos recientes. Vuelve a intentarlo.')
-    } finally {
-      if (request === recentRequest.current) setRecentLoading(false)
-    }
+      const result = await window.settings.setPrintStyle(css)
+      if (result.status === 'error') return result.message
+      setPrintStyle(css)
+      return null
+    } catch { return 'No se pudo guardar el CSS de impresión. Vuelve a intentarlo.' }
+  }
+
+  const changeZoom = useCallback((next: number) => {
+    setFitZoom(false)
+    setZoom(clampZoom(next))
   }, [])
 
   useEffect(() => {
-    const unsubscribe = window.workspace.onRecentChange((items) => {
-      recentRequest.current++
-      setRecentWorkspaces(items)
-      setRecentLoading(false)
-      setRecentError('')
-    })
-    void loadRecentWorkspaces()
-    return () => { recentRequest.current++; unsubscribe() }
-  }, [loadRecentWorkspaces])
+    const area = workspaceArea.current
+    if (!fitZoom || !area) return
+    // The sheet already reflows below its full width, so fitting never shrinks it.
+    const fit = () => setZoom(clampZoom(Math.max(100, Math.floor(area.clientWidth / documentWidthPx * 100))))
+    const observer = new ResizeObserver(fit)
+    observer.observe(area)
+    fit()
+    return () => observer.disconnect()
+  }, [fitZoom])
+
+  useEffect(() => {
+    const area = workspaceArea.current
+    if (!area) return
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || !event.deltaY) return
+      event.preventDefault()
+      setFitZoom(false)
+      setZoom((value) => clampZoom(event.deltaY < 0 ? Math.floor(value / zoomStep + 1) * zoomStep : Math.ceil(value / zoomStep - 1) * zoomStep))
+    }
+    area.addEventListener('wheel', wheel, { passive: false })
+    return () => area.removeEventListener('wheel', wheel)
+  }, [])
 
   const closeSidebar = () => {
     setSidebarOpen(false)
@@ -177,6 +219,7 @@ export function App() {
   useEffect(() => {
     if (!sidebarOpen || !narrow) return
     const keydown = (event: KeyboardEvent) => {
+      if (event.target instanceof Element && event.target.closest('dialog')) return
       if (event.key === 'Escape') {
         event.preventDefault()
         setSidebarOpen(false)
@@ -197,9 +240,10 @@ export function App() {
     return () => window.removeEventListener('keydown', keydown)
   }, [sidebarOpen, narrow])
 
-  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create' | 'recent', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }): Promise<boolean> => {
+  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create' | 'recent' | 'recent-document', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }): Promise<boolean> => {
     if (locked.current) return false
     locked.current = true
+    focusOrigin.current = globalThis.document.activeElement
     setOperation('open')
     setBusy(true)
     controller.current?.setEditable(false)
@@ -211,16 +255,18 @@ export function App() {
         ? await window.workspace.open(noteId ?? '')
         : action === 'recent'
           ? await window.workspace.openRecent(noteId ?? '')
+          : action === 'recent-document'
+            ? await window.documents.openRecent(noteId ?? '')
           : action === 'create'
             ? await window.workspace.create(noteId ?? '', creation?.name ?? '', creation?.kind ?? 'note')
             : await window.workspace[action]()
       if (result.status === 'error') {
-        if (action === 'create' || action === 'recent') throw new Error(result.message)
+        if (action === 'create' || action === 'recent' || action === 'recent-document') throw new Error(result.message)
         setError(result.message)
         if (window.innerWidth <= 700) setSidebarOpen(false)
       }
       if (result.status !== 'ok') return false
-      const opensNote = action === 'open' || (action === 'create' && creation?.kind === 'note')
+      const opensNote = action === 'open' || action === 'recent-document' || (action === 'create' && creation?.kind === 'note')
       if (action === 'choose' || action === 'recent' || opensNote) setBrainOpen(false)
       if (opensNote) {
         if (window.innerWidth <= 700) setSidebarOpen(false)
@@ -228,7 +274,7 @@ export function App() {
       }
       return true
     } catch (failure) {
-      if (action === 'create' || action === 'recent') throw failure
+      if (action === 'create' || action === 'recent' || action === 'recent-document') throw failure
       setError(failure instanceof Error ? failure.message : 'No se pudo abrir el cuaderno.')
       if (window.innerWidth <= 700) setSidebarOpen(false)
       return false
@@ -355,6 +401,12 @@ export function App() {
       if (event.target instanceof Element && event.target.closest('dialog')) return
       if (!event.ctrlKey || event.altKey || event.isComposing) return
       const key = event.key.toLowerCase()
+      if (['+', '=', '-', '0'].includes(key)) {
+        event.preventDefault()
+        setFitZoom(false)
+        setZoom((value) => key === '0' ? 100 : clampZoom(key === '-' ? Math.ceil(value / zoomStep - 1) * zoomStep : Math.floor(value / zoomStep + 1) * zoomStep))
+        return
+      }
       if (key !== 'o' && key !== 's' && key !== 'p') return
       event.preventDefault()
       if (key === 'o') void run('open')
@@ -400,11 +452,13 @@ export function App() {
       <span className={styles.status} role="status"><span className={styles.dot} data-dirty={document?.dirty || undefined} />{status}</span>
     </header>
     <style>{`@page { size: ${pageSettings.widthMm}mm ${pageSettings.heightMm}mm; margin: ${pageMarginMm}mm; background: #fff; } :root { --hiloo-print-height: ${pageSettings.heightMm - 2 * pageMarginMm}mm; }`}</style>
+    {printStyle.trim() ? <style data-print-style="">{scopedPrintStyle(printStyle)}</style> : null}
+    {printStyleOpen ? <PrintStyleDialog value={printStyle} onSave={savePrintStyle} onClose={() => setPrintStyleOpen(false)} /> : null}
     <div className={styles.body}>
       {sidebarOpen ? <>
         <button type="button" className={styles.scrim} aria-label="Cerrar panel del cuaderno" onClick={closeSidebar} />
         <div ref={sidebarPanel} className={styles.sidebar} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeSidebar() } }}>
-          <Sidebar key={workspace?.id ?? 'empty'} workspace={workspace} busy={busy} brainOpen={brainOpen} recentWorkspaces={recentWorkspaces} recentLoading={recentLoading} recentError={recentError} onRetryRecent={() => { void loadRecentWorkspaces() }} onOpenRecent={(id) => runWorkspace('recent', id)} onChoose={() => { void runWorkspace('choose') }} onRefresh={() => { void runWorkspace('refresh') }} onOpen={(id) => { void runWorkspace('open', id) }} onCreate={(parentId, name, kind) => runWorkspace('create', parentId, { name, kind })} onBrain={() => { void openBrain() }} onClose={closeSidebar} />
+          <Sidebar key={workspace?.id ?? 'empty'} workspace={workspace} busy={busy} brainOpen={brainOpen} recentWorkspaces={recentWorkspaces.items} recentLoading={recentWorkspaces.loading} recentError={recentWorkspaces.error} onRetryRecent={recentWorkspaces.reload} onOpenRecent={(id) => runWorkspace('recent', id)} recentDocuments={recentDocuments} onOpenRecentDocument={(id) => runWorkspace('recent-document', id)} onPrintStyle={() => setPrintStyleOpen(true)} onChoose={() => { void runWorkspace('choose') }} onRefresh={() => { void runWorkspace('refresh') }} onOpen={(id) => { void runWorkspace('open', id) }} onCreate={(parentId, name, kind) => runWorkspace('create', parentId, { name, kind })} onBrain={() => { void openBrain() }} onClose={closeSidebar} />
         </div>
       </> : null}
       <div className={styles.content} inert={sidebarOpen && narrow}>
@@ -419,13 +473,13 @@ export function App() {
             onImage={(value) => controller.current?.setImage(value) ?? false} onRemoveImage={() => controller.current?.removeImage() ?? false} />
         </div>
         {error ? <div role="alert" className={styles.error}>{error}<button aria-label="Cerrar aviso" onClick={() => setError('')}>Cerrar</button></div> : null}
-        {brainOpen && workspace ? <div className={styles.brain}><Suspense fallback={<p className={styles.loading}>Preparando Cerebro…</p>}><Brain workspace={workspace} theme={theme} busy={busy} onOpen={(id) => { void runWorkspace('open', id) }} onClose={() => { setBrainOpen(false); setFocusDocument(true) }} /></Suspense></div> : null}
-        <main className={styles.workspace} data-view={mode} data-paper-theme={paperTheme} data-brain-hidden={brainOpen || undefined} aria-busy={busy}>
+        {brainOpen && workspace ? <div className={styles.brain}><Suspense fallback={<p className={styles.loading}>Preparando Cerebro…</p>}><Brain workspace={workspace} theme={theme} busy={busy} onOpen={(id) => { void runWorkspace('open', id) }} onClose={() => { focusOrigin.current = globalThis.document.activeElement; setBrainOpen(false); setFocusDocument(true) }} /></Suspense></div> : null}
+        <main ref={workspaceArea} className={styles.workspace} data-view={mode} data-paper-theme={paperTheme} data-brain-hidden={brainOpen || undefined} aria-busy={busy}>
           {document ? <>
             <div className={styles.visual} data-paper-theme={paperTheme} data-hidden={mode === 'markdown' || undefined}>
-              <MarkdownEditor key={document.id} documentId={document.id} source={document.content} savedSource={document.savedContent} onReady={(next) => { controller.current = next; next.setEditable(!locked.current); setReady(next.visualReady()); if (modeRef.current === 'visual') next.focus(); else sourceInput.current?.focus() }} onChange={changed} onSelection={setSelection} onError={setError} />
+              <div className={styles.zoom} style={{ zoom: zoom / 100 }}><MarkdownEditor key={document.id} documentId={document.id} source={document.content} savedSource={document.savedContent} onReady={(next) => { controller.current = next; next.setEditable(!locked.current); setReady(next.visualReady()); if (modeRef.current === 'visual') next.focus(); else sourceInput.current?.focus() }} onChange={changed} onSelection={setSelection} onError={setError} /></div>
             </div>
-            <textarea key={document.id} ref={sourceInput} hidden={mode !== 'markdown'} className={styles.source} aria-label="Código Markdown" spellCheck={false} readOnly={busy} value={source} onChange={(event) => {
+            <textarea key={document.id} ref={sourceInput} hidden={mode !== 'markdown'} className={styles.source} style={{ fontSize: `${sourceFontPx * zoom / 100}px` }} aria-label="Código Markdown" spellCheck={false} readOnly={busy} value={source} onChange={(event) => {
               if (locked.current) return
               const value = event.target.value
               if (new TextEncoder().encode(value).length > maxDocumentBytes) { setError('El documento supera el límite de 2 MB. La última edición no se aplicó.'); return }
@@ -433,6 +487,7 @@ export function App() {
             }} />
           </> : null}
         </main>
+        {document && !brainOpen ? <ZoomBar zoom={zoom} fit={fitZoom} disabled={!ready && mode === 'visual'} onZoom={changeZoom} onFit={() => setFitZoom(true)} /> : null}
       </div>
     </div>
   </div>

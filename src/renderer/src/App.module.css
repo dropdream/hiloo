@@ -25,7 +25,8 @@
 .loading { padding: 24px; color: var(--hiloo-muted); }
 .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--hiloo-muted); }
 .dot[data-dirty] { background: var(--hiloo-accent); }
-.workspace { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.workspace { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.zoom { min-height: 100%; }
 .workspace[data-brain-hidden] { display: none; }
 .workspace[data-view='visual'] { background: #fff; color-scheme: light; }
 .workspace[data-view='visual'][data-paper-theme='night'] { background: #183550; color-scheme: dark; }
@@ -73,4 +74,5 @@
   .visual, .visual[data-paper-theme='night'] { color: #000; --hiloo-document-text: #000; --hiloo-text: #000; --hiloo-muted: #333; --hiloo-accent: #000; --hiloo-border: #888; --hiloo-bar: #fff; --hiloo-active: #fff; }
   .app, .body, .content, .workspace, .workspace[data-brain-hidden], .visual, .visual[data-hidden] { display: block; height: auto; min-height: 0; overflow: visible; }
   .titlebar, .error, .source, .sidebar, .scrim, .brain, .documentControls { display: none !important; }
+  .zoom { zoom: 1 !important; }
 }

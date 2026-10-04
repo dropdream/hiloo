@@ -1,4 +1,4 @@
-import type { DocumentResult } from './documents'
+import type { DocumentResult, RecentEntry } from './documents'
 
 export interface WorkspaceNote {
   id: string
@@ -27,13 +27,7 @@ export interface WorkspaceSnapshot {
   warnings: string[]
 }
 
-export interface RecentWorkspace {
-  id: string
-  name: string
-  path: string
-  lastOpenedAt: string
-  current: boolean
-}
+export type RecentWorkspace = RecentEntry
 
 export type WorkspacePreviewResult =
   | { status: 'ok'; note: WorkspaceNote; content: string }
