@@ -5,7 +5,9 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { maxDocumentBytes, type DocumentResult, type DocumentSnapshot } from '../shared/documents'
 import { markdownProblem, safeImage } from '../shared/markdown'
 import { validatePageSettings } from '../shared/printing'
+import type { WorkspaceLinkResult, WorkspacePreviewResult } from '../shared/workspace'
 import { printDocument } from './printing'
+import { createWorkspace, pathKey, scanWorkspace, validateWorkspaceNote, withinWorkspace, workspaceCreationParent, workspaceEntryName, type WorkspaceSession } from './workspace'
 
 const maxImageBytes = 10 * 1024 * 1024
 
@@ -35,6 +37,8 @@ interface DocumentSession {
 export function attachDocuments(window: BrowserWindow, trustedUrl: string): void {
   let document: DocumentSession = { id: randomUUID(), path: null, original: null, source: '', content: '', bom: false, crlf: false, revision: 0, savedRevision: 0, updateError: null }
   let busy = false
+  let workspace: WorkspaceSession | null = null
+  let workspaceGeneration = 0
   let allowClose = false
   let pendingFlush: { id: string; resolve(error: string | null): void } | null = null
   const channels: string[] = []
@@ -43,6 +47,41 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   const emit = () => {
     window.setTitle(`${dirty() ? '• ' : ''}${snapshot().name} — hiloo`)
     window.webContents.send('document:changed', snapshot())
+  }
+  const emitWorkspace = () => {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('workspace:changed', workspace?.snapshot ?? null)
+  }
+
+  async function refreshWorkspace(): Promise<void> {
+    if (!workspace) return
+    const active = workspace
+    const generation = ++workspaceGeneration
+    try {
+      const next = await scanWorkspace(active, document.path)
+      if (workspace !== active || generation !== workspaceGeneration) return
+      active.snapshot = next
+    } catch {
+      if (workspace !== active || generation !== workspaceGeneration) return
+      active.paths.clear()
+      active.folders.clear()
+      active.listing.complete = false
+      active.snapshot = { ...active.snapshot, notes: [], folders: [], links: [], currentNoteId: null, warnings: ['No se pudo actualizar el cuaderno. Comprueba la carpeta y vuelve a actualizar.'] }
+    }
+    emitWorkspace()
+  }
+
+  async function followDocument(): Promise<void> {
+    if (!document.path) return
+    try {
+      const actual = await fs.realpath(document.path)
+      if (!workspace || !withinWorkspace(workspace.root, actual)) {
+        workspace = await createWorkspace(dirname(actual))
+        workspaceGeneration++
+      }
+      await refreshWorkspace()
+    } catch {
+      if (workspace) { workspace.snapshot = { ...workspace.snapshot, warnings: ['El documento se conservó, pero no se pudo actualizar su cuaderno.'] }; emitWorkspace() }
+    }
   }
   const setBusy = (value: boolean) => {
     busy = value
@@ -102,9 +141,16 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       const stat = await fs.lstat(path)
       if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Elegir un archivo Markdown normal, sin enlaces simbólicos.')
       if (stat.size > maxDocumentBytes) throw new Error('El archivo supera el límite de 2 MB de esta entrega.')
-      const bytes = await fs.readFile(path)
-      if (bytes.length > maxDocumentBytes) throw new Error('El archivo supera el límite de 2 MB de esta entrega.')
-      return bytes
+      const file = await fs.open(path, 'r')
+      try {
+        const current = await file.stat()
+        if (!current.isFile() || current.size > maxDocumentBytes) throw new Error('El archivo supera el límite de 2 MB de esta entrega.')
+        const buffer = Buffer.alloc(Math.min(current.size + 1, maxDocumentBytes + 1))
+        const result = await file.read(buffer, 0, buffer.length, 0)
+        if (result.bytesRead > maxDocumentBytes) throw new Error('El archivo supera el límite de 2 MB de esta entrega.')
+        if (result.bytesRead !== current.size) throw new Error('El archivo cambió durante la lectura. Volver a intentar.')
+        return buffer.subarray(0, result.bytesRead)
+      } finally { await file.close() }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
       throw error
@@ -119,7 +165,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     let target = document.path
     if (!target || asCopy) {
       const selection = await dialog.showSaveDialog(window, {
-        title: 'Guardar documento', defaultPath: target ?? 'Sin título.md',
+        title: 'Guardar documento', defaultPath: target ?? (workspace ? join(workspace.root, 'Sin título.md') : 'Sin título.md'),
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
       })
       if (selection.canceled || !selection.filePath) return { status: 'cancelled' }
@@ -128,9 +174,11 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     }
     validatePath(target)
     const isCurrent = document.path !== null && samePath(target, document.path)
+    const owner = isCurrent && workspace && withinWorkspace(workspace.root, target) ? workspace : null
+    if (owner) await validateWorkspaceNote(owner, target)
     const expected = isCurrent ? document.original : await read(target)
     if (!matches(await read(target), expected)) throw new Error('El archivo cambió fuera de hiloo. No se sobrescribió. Usar Guardar como para conservar la edición en otra ubicación.')
-    if (isCurrent && !dirty()) return { status: 'ok' }
+    if (isCurrent && !dirty()) { await followDocument(); return { status: 'ok' } }
     if (!isCurrent && expected) {
       const choice = await dialog.showMessageBox(window, { type: 'warning', message: `¿Reemplazar ${basename(target)}?`, detail: 'El archivo elegido ya existe.', buttons: ['Reemplazar', 'Cancelar'], defaultId: 1, cancelId: 1, noLink: true })
       if (choice.response !== 0) return { status: 'cancelled' }
@@ -148,6 +196,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       const file = await fs.open(temp, 'wx')
       try { await file.writeFile(bytes); await file.sync() } finally { await file.close() }
       // Comprobación final antes de reemplazar el archivo.
+      if (owner) await validateWorkspaceNote(owner, target)
       if (!matches(await read(target), expected)) throw new Error('El archivo cambió fuera de hiloo. No se sobrescribió. Usar Guardar como para conservar la edición en otra ubicación.')
       if (document.updateError) throw new Error(document.updateError)
       if (expected === null) {
@@ -162,6 +211,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     document = { ...document, path: target, original: bytes, source, savedRevision: writing.revision, content: document.revision === writing.revision ? source : document.content }
     emit()
     if (document.updateError) throw new Error(document.updateError)
+    await followDocument()
     return { status: 'ok' }
   }
 
@@ -182,6 +232,171 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (dirty()) throw new Error('Se guardó una versión anterior, pero hay cambios posteriores pendientes. Guardar de nuevo antes de continuar.')
     return true
   }
+
+  async function openPath(path: string, revision: number, owner?: WorkspaceSession): Promise<DocumentResult> {
+    validatePath(path)
+    if (owner) await validateWorkspaceNote(owner, path)
+    const bytes = await read(path)
+    if (!bytes) throw new Error('El archivo ya no existe.')
+    if (owner) await validateWorkspaceNote(owner, path)
+    let source: string
+    try { source = new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { throw new Error('El archivo no está codificado en UTF-8. Convertir una copia antes de abrir.') }
+    if (source.includes('\0')) throw new Error('El archivo contiene datos binarios y no puede abrirse como Markdown.')
+    const problem = markdownProblem(source)
+    if (problem) throw new Error(problem)
+    if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.')
+    document = { id: randomUUID(), path, original: bytes, source, content: source, bom: bytes.subarray(0, 3).equals(Buffer.from([239, 187, 191])), crlf: source.includes('\r\n'), revision: 0, savedRevision: 0, updateError: null }
+    emit()
+    await followDocument()
+    return { status: 'ok' }
+  }
+
+  handle('workspace:current', () => workspace?.snapshot ?? null)
+  handle('workspace:create', (parentId, value, kind) => {
+    const owner = workspace
+    if (!owner || typeof parentId !== 'string' || (parentId !== owner.id && !owner.folders.has(parentId)) || (kind !== 'folder' && kind !== 'note')) {
+      return { status: 'error', message: 'La carpeta o el tipo de elemento no pertenece al cuaderno actual.' }
+    }
+    let name: string
+    try { name = workspaceEntryName(value, kind) } catch (error) { return errorResult(error) }
+    return operation(async () => {
+      const originalParent = parentId === owner.id ? owner.root : owner.folders.get(parentId)
+      if (!originalParent) throw new Error('La carpeta seleccionada ya no está disponible.')
+      await validateWorkspaceNote(owner, originalParent)
+      if (kind === 'note' && !await confirmChanges()) return { status: 'cancelled' }
+      if (workspace !== owner) throw new Error('El cuaderno cambió durante el guardado. Selecciona la carpeta de nuevo.')
+      const revision = document.revision
+      owner.snapshot = await scanWorkspace(owner, document.path)
+      emitWorkspace()
+      const parent = await workspaceCreationParent(owner, parentId, kind)
+      if (workspace !== owner || (kind === 'note' && document.revision !== revision)) {
+        throw new Error('Llegaron cambios durante la creación. La edición actual se conserva; vuelve a intentarlo.')
+      }
+      const target = join(parent, name)
+      try {
+        if (kind === 'folder') await fs.mkdir(target)
+        else {
+          const file = await fs.open(target, 'wx')
+          await file.close()
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Ya existe un archivo o carpeta con ese nombre. Elegir otro nombre.')
+        throw error
+      }
+      try {
+        await validateWorkspaceNote(owner, target)
+        if (workspace !== owner) throw new Error('El cuaderno cambió. Actualízalo antes de continuar.')
+        if (kind === 'note') await openPath(target, revision, owner)
+        else await refreshWorkspace()
+        const createdId = owner.ids.get(pathKey(target))
+        if (workspace !== owner || !createdId || !(kind === 'folder' ? owner.folders : owner.paths).has(createdId)) {
+          throw new Error('El elemento creado no aparece en el listado actualizado. Comprueba los avisos y los cambios externos del cuaderno.')
+        }
+        return { status: 'ok' }
+      } catch (error) {
+        await refreshWorkspace()
+        const result = errorResult(error)
+        throw new Error(`Se creó ${name}, pero no se pudo completar su apertura o actualización. ${result.status === 'error' ? result.message : 'Actualiza el cuaderno.'}`)
+      }
+    })
+  })
+  handle('workspace:link-to', async (id): Promise<WorkspaceLinkResult> => {
+    const owner = workspace
+    const sourcePath = document.path
+    const sourceDocumentId = document.id
+    if (!sourcePath) return { status: 'error', message: 'Guarda esta nota antes de enlazar otra nota del cuaderno.' }
+    if (!owner || typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+    }
+    const sourceNoteId = owner.snapshot.currentNoteId
+    const sourceIndexedPath = sourceNoteId ? owner.paths.get(sourceNoteId) : null
+    if (!sourceNoteId || !sourceIndexedPath || pathKey(sourceIndexedPath) !== pathKey(sourcePath)) {
+      return { status: 'error', message: 'La nota actual no está en el listado del cuaderno. Actualízalo antes de crear el enlace.' }
+    }
+    const targetPath = owner.paths.get(id)
+    const note = owner.snapshot.notes.find((entry) => entry.id === id)
+    if (!targetPath || !note) return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+    if (id === sourceNoteId || pathKey(sourcePath) === pathKey(targetPath)) {
+      return { status: 'error', message: 'Selecciona otra nota; no se puede enlazar la nota consigo misma.' }
+    }
+    try {
+      validatePath(sourcePath)
+      validatePath(targetPath)
+      await Promise.all([validateWorkspaceNote(owner, sourcePath), validateWorkspaceNote(owner, targetPath)])
+      const [sourceStat, targetStat] = await Promise.all([fs.lstat(sourcePath), fs.lstat(targetPath)])
+      if (!sourceStat.isFile() || sourceStat.isSymbolicLink() || !targetStat.isFile() || targetStat.isSymbolicLink()) {
+        throw new Error('El origen y el destino deben ser archivos Markdown normales, sin enlaces simbólicos.')
+      }
+      await Promise.all([validateWorkspaceNote(owner, sourcePath), validateWorkspaceNote(owner, targetPath)])
+      if (workspace !== owner || document.id !== sourceDocumentId || document.path !== sourcePath || owner.snapshot.currentNoteId !== sourceNoteId || owner.paths.get(sourceNoteId) !== sourceIndexedPath || owner.paths.get(id) !== targetPath) {
+        throw new Error('El documento o el cuaderno cambió mientras se preparaba el enlace. Selecciona la nota de nuevo.')
+      }
+      const href = relative(dirname(sourcePath), targetPath).split(sep).map((segment) => encodeURIComponent(segment)).join('/')
+      return { status: 'ok', href, note }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'error', message: 'El origen o el destino ya no existe. Actualiza el cuaderno antes de crear el enlace.' }
+      const failure = errorResult(error)
+      return { status: 'error', message: failure.status === 'error' ? failure.message : 'No se pudo preparar el enlace.' }
+    }
+  })
+  handle('workspace:preview', async (id): Promise<WorkspacePreviewResult> => {
+    const owner = workspace
+    if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) || !owner) {
+      return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+    }
+    const path = owner.paths.get(id)
+    const note = owner.snapshot.notes.find((entry) => entry.id === id)
+    if (!path || !note) return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+    try {
+      validatePath(path)
+      await validateWorkspaceNote(owner, path)
+      const bytes = await read(path)
+      if (!bytes) throw new Error('El archivo ya no existe. Actualizar el cuaderno.')
+      await validateWorkspaceNote(owner, path)
+      let content: string
+      try { content = new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { throw new Error('El archivo no está codificado en UTF-8.') }
+      if (content.includes('\0')) throw new Error('El archivo contiene datos binarios y no puede mostrarse como Markdown.')
+      if (owner !== workspace || owner.paths.get(id) !== path) throw new Error('El cuaderno cambió mientras se preparaba la vista previa. Selecciona la nota de nuevo.')
+      return { status: 'ok', note, content }
+    } catch (error) {
+      const failure = errorResult(error)
+      return { status: 'error', message: failure.status === 'error' ? failure.message : 'No se pudo preparar la vista previa.' }
+    }
+  })
+  handle('workspace:refresh', () => operation(async () => {
+    await refreshWorkspace()
+    return { status: 'ok' }
+  }))
+  handle('workspace:choose', () => operation(async () => {
+    if (!await confirmChanges()) return { status: 'cancelled' }
+    const revision = document.revision
+    const selection = await dialog.showOpenDialog(window, { title: 'Abrir cuaderno', properties: ['openDirectory'] })
+    if (selection.canceled || !selection.filePaths[0]) return { status: 'cancelled' }
+    const next = await createWorkspace(selection.filePaths[0])
+    if (workspace && pathKey(workspace.root) === pathKey(next.root)) {
+      await refreshWorkspace()
+      return { status: 'ok' }
+    }
+    next.snapshot = await scanWorkspace(next, null)
+    if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el cuaderno. La edición actual se conserva.')
+    workspace = next
+    workspaceGeneration++
+    document = { id: randomUUID(), path: null, original: null, source: '', content: '', bom: false, crlf: false, revision: 0, savedRevision: 0, updateError: null }
+    emit()
+    emitWorkspace()
+    return { status: 'ok' }
+  }))
+  handle('workspace:open', (id) => {
+    if (typeof id !== 'string' || id.length > 100 || !workspace?.paths.has(id)) return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+    return operation(async () => {
+      const owner = workspace!
+      const path = owner.paths.get(id)
+      if (!path) throw new Error('La nota ya no está disponible. Actualizar el cuaderno.')
+      if (!await confirmChanges()) return { status: 'cancelled' }
+      if (workspace !== owner) throw new Error('El cuaderno cambió durante el guardado. Selecciona la nota de nuevo.')
+      return openPath(path, document.revision, owner)
+    })
+  })
 
   handle('document:current', () => snapshot())
   handle('document:image-source', async (id, source) => {
@@ -247,19 +462,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     const revision = document.revision
     const selection = await dialog.showOpenDialog(window, { title: 'Abrir Markdown', properties: ['openFile'], filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }] })
     if (selection.canceled || !selection.filePaths[0]) return { status: 'cancelled' }
-    const path = selection.filePaths[0]
-    validatePath(path)
-    const bytes = await read(path)
-    if (!bytes) throw new Error('El archivo ya no existe.')
-    let source: string
-    try { source = new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { throw new Error('El archivo no está codificado en UTF-8. Convertir una copia antes de abrir.') }
-    if (source.includes('\0')) throw new Error('El archivo contiene datos binarios y no puede abrirse como Markdown.')
-    const problem = markdownProblem(source)
-    if (problem) throw new Error(problem)
-    if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.')
-    document = { id: randomUUID(), path, original: bytes, source, content: source, bom: bytes.subarray(0, 3).equals(Buffer.from([239, 187, 191])), crlf: source.includes('\r\n'), revision: 0, savedRevision: 0, updateError: null }
-    emit()
-    return { status: 'ok' }
+    return openPath(selection.filePaths[0], revision)
   }))
 
   window.on('close', (event) => {

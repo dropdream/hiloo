@@ -25,6 +25,7 @@
     "@radix-ui/react-select": "2.3.7",
     "@radix-ui/react-toolbar": "1.1.19",
     "@radix-ui/react-tooltip": "1.2.16",
+    "cytoscape": "3.34.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "remark-frontmatter": "5.0.0",
