@@ -24,6 +24,7 @@ const paths = {
   search: 'M15 15l6 6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',
   close: 'm6 6 12 12M6 18 18 6',
   refresh: 'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3',
+  history: 'M3 4v5h5M3 9a9 9 0 1 1 0 6M12 7v5l3 2',
   brain: 'M9 5a3 3 0 1 0-6 1 4 4 0 0 0 0 7 3 3 0 0 0 6 5V5Zm6 0a3 3 0 1 1 6 1 4 4 0 0 1 0 7 3 3 0 0 1-6 5V5ZM6 9h3M15 9h3M6 15h3M15 15h3',
   plus: 'M5 12h14M12 5v14',
   minus: 'M5 12h14',

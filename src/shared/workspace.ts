@@ -27,6 +27,14 @@ export interface WorkspaceSnapshot {
   warnings: string[]
 }
 
+export interface RecentWorkspace {
+  id: string
+  name: string
+  path: string
+  lastOpenedAt: string
+  current: boolean
+}
+
 export type WorkspacePreviewResult =
   | { status: 'ok'; note: WorkspaceNote; content: string }
   | { status: 'error'; message: string }
@@ -37,6 +45,9 @@ export type WorkspaceLinkResult =
 
 export interface WorkspaceBridge {
   current(): Promise<WorkspaceSnapshot | null>
+  recent(): Promise<RecentWorkspace[]>
+  openRecent(id: string): Promise<DocumentResult>
+  onRecentChange(callback: (workspaces: RecentWorkspace[]) => void): () => void
   choose(): Promise<DocumentResult>
   refresh(): Promise<DocumentResult>
   open(noteId: string): Promise<DocumentResult>

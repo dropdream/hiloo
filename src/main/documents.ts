@@ -1,4 +1,4 @@
-import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { app, dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { constants, promises as fs } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
@@ -7,6 +7,8 @@ import { markdownProblem, safeImage } from '../shared/markdown'
 import { validatePageSettings } from '../shared/printing'
 import type { WorkspaceLinkResult, WorkspacePreviewResult } from '../shared/workspace'
 import { printDocument } from './printing'
+import { RecentWorkspaces } from './recent-workspaces'
+import { attachBrain } from './brain-service'
 import { createWorkspace, pathKey, scanWorkspace, validateWorkspaceNote, withinWorkspace, workspaceCreationParent, workspaceEntryName, type WorkspaceSession } from './workspace'
 
 const maxImageBytes = 10 * 1024 * 1024
@@ -41,6 +43,8 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   let workspaceGeneration = 0
   let allowClose = false
   let pendingFlush: { id: string; resolve(error: string | null): void } | null = null
+  const recentWorkspaces = new RecentWorkspaces(join(app.getPath('userData'), 'recent-workspaces.json'))
+  const brain = attachBrain(window, trustedUrl)
   const channels: string[] = []
   const dirty = () => Boolean(document.updateError) || document.content !== document.source
   const snapshot = (): DocumentSnapshot => ({ id: document.id, name: document.path ? basename(document.path) : 'Sin título', content: document.content, savedContent: document.source, revision: document.revision, savedRevision: document.savedRevision, updateError: document.updateError, dirty: dirty(), hasFile: Boolean(document.path) })
@@ -50,6 +54,9 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   }
   const emitWorkspace = () => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('workspace:changed', workspace?.snapshot ?? null)
+    void recentWorkspaces.list(workspace?.root ?? null).then((entries) => {
+      if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('workspace:recent-changed', entries)
+    })
   }
 
   async function refreshWorkspace(): Promise<void> {
@@ -60,6 +67,9 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       const next = await scanWorkspace(active, document.path)
       if (workspace !== active || generation !== workspaceGeneration) return
       active.snapshot = next
+      const warnings = await brain.refreshed(active.root)
+      if (workspace !== active || generation !== workspaceGeneration) return
+      active.snapshot.warnings.push(...warnings)
     } catch {
       if (workspace !== active || generation !== workspaceGeneration) return
       active.paths.clear()
@@ -251,6 +261,41 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     return { status: 'ok' }
   }
 
+  async function openWorkspace(path: string, revision: number): Promise<DocumentResult> {
+    const next = await createWorkspace(path)
+    const same = workspace && pathKey(workspace.root) === pathKey(next.root) ? workspace : null
+    const owner = same ?? next
+    const nextSnapshot = await scanWorkspace(owner, same ? document.path : null)
+    if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el cuaderno. La edición actual se conserva.')
+    owner.snapshot = nextSnapshot
+    workspace = owner
+    workspaceGeneration++
+    if (!same) {
+      document = { id: randomUUID(), path: null, original: null, source: '', content: '', bom: false, crlf: false, revision: 0, savedRevision: 0, updateError: null }
+      emit()
+    }
+    try { await recentWorkspaces.remember(owner.root) } catch {
+      owner.snapshot.warnings.push('El cuaderno se abrió, pero no se pudo guardar su acceso en recientes para la próxima sesión.')
+    }
+    owner.snapshot.warnings.push(...await brain.opened(owner.root))
+    emitWorkspace()
+    return { status: 'ok' }
+  }
+
+  handle('workspace:recent', () => recentWorkspaces.list(workspace?.root ?? null))
+  handle('workspace:open-recent', async (id) => {
+    const entry = await recentWorkspaces.find(id)
+    if (!entry) return { status: 'error', message: 'El cuaderno seleccionado no pertenece a los recientes.' }
+    return operation(async () => {
+      if (!await confirmChanges()) return { status: 'cancelled' }
+      try { return await openWorkspace(entry.path, document.revision) } catch (error) {
+        if (['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+          return { status: 'error', message: 'El cuaderno ya no está disponible. Comprueba su ubicación o vuelve a abrirlo con Abrir cuaderno.' }
+        }
+        throw error
+      }
+    })
+  })
   handle('workspace:current', () => workspace?.snapshot ?? null)
   handle('workspace:create', (parentId, value, kind) => {
     const owner = workspace
@@ -372,19 +417,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     const revision = document.revision
     const selection = await dialog.showOpenDialog(window, { title: 'Abrir cuaderno', properties: ['openDirectory'] })
     if (selection.canceled || !selection.filePaths[0]) return { status: 'cancelled' }
-    const next = await createWorkspace(selection.filePaths[0])
-    if (workspace && pathKey(workspace.root) === pathKey(next.root)) {
-      await refreshWorkspace()
-      return { status: 'ok' }
-    }
-    next.snapshot = await scanWorkspace(next, null)
-    if (document.revision !== revision) throw new Error('Llegaron cambios mientras se abría el cuaderno. La edición actual se conserva.')
-    workspace = next
-    workspaceGeneration++
-    document = { id: randomUUID(), path: null, original: null, source: '', content: '', bom: false, crlf: false, revision: 0, savedRevision: 0, updateError: null }
-    emit()
-    emitWorkspace()
-    return { status: 'ok' }
+    return openWorkspace(selection.filePaths[0], revision)
   }))
   handle('workspace:open', (id) => {
     if (typeof id !== 'string' || id.length > 100 || !workspace?.paths.has(id)) return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }

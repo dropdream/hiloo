@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DocumentBridge, DocumentSnapshot } from '../shared/documents'
 import type { AppearanceBridge } from '../shared/window'
-import type { WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
+import type { RecentWorkspace, WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
+import type { BrainBridge } from '../shared/brain'
 
 const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
@@ -45,6 +46,13 @@ contextBridge.exposeInMainWorld('appearance', appearance)
 
 const workspace: WorkspaceBridge = {
   current: () => ipcRenderer.invoke('workspace:current'),
+  recent: () => ipcRenderer.invoke('workspace:recent'),
+  openRecent: (id) => ipcRenderer.invoke('workspace:open-recent', id),
+  onRecentChange: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, value: RecentWorkspace[]) => callback(value)
+    ipcRenderer.on('workspace:recent-changed', listener)
+    return () => { ipcRenderer.removeListener('workspace:recent-changed', listener) }
+  },
   choose: () => ipcRenderer.invoke('workspace:choose'),
   refresh: () => ipcRenderer.invoke('workspace:refresh'),
   open: (noteId) => ipcRenderer.invoke('workspace:open', noteId),
@@ -59,3 +67,16 @@ const workspace: WorkspaceBridge = {
 }
 
 contextBridge.exposeInMainWorld('workspace', workspace)
+
+const brain: BrainBridge = {
+  catalog: (request) => ipcRenderer.invoke('brain:catalog', request),
+  search: (request) => ipcRenderer.invoke('brain:search', request),
+  read: (request) => ipcRenderer.invoke('brain:read', request),
+  related: (request) => ipcRenderer.invoke('brain:related', request),
+  link: (request) => ipcRenderer.invoke('brain:link', request),
+  unlink: (linkId) => ipcRenderer.invoke('brain:unlink', linkId),
+  sync: (notebookId) => ipcRenderer.invoke('brain:sync', notebookId),
+  status: () => ipcRenderer.invoke('brain:status')
+}
+
+contextBridge.exposeInMainWorld('brain', brain)
