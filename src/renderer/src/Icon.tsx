@@ -19,7 +19,18 @@ const paths = {
   undo: 'M9 5 4 10l5 5M4 10h10a6 6 0 0 1 0 12',
   redo: 'm15 5 5 5-5 5m5-5H10a6 6 0 0 0 0 12',
   chevron: 'm8 10 4 4 4-4',
-  check: 'm5 12 4 4L19 6'
+  check: 'm5 12 4 4L19 6',
+  sidebar: 'M3 4h18v16H3V4Zm6 0v16M5 8h2M5 12h2',
+  search: 'M15 15l6 6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',
+  close: 'm6 6 12 12M6 18 18 6',
+  refresh: 'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3',
+  brain: 'M9 5a3 3 0 1 0-6 1 4 4 0 0 0 0 7 3 3 0 0 0 6 5V5Zm6 0a3 3 0 1 1 6 1 4 4 0 0 1 0 7 3 3 0 0 1-6 5V5ZM6 9h3M15 9h3M6 15h3M15 15h3',
+  plus: 'M5 12h14M12 5v14',
+  minus: 'M5 12h14',
+  fit: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5',
+  info: 'M12 8h.01M11 12h1v5m-1 0h2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
+  folderPlus: 'M3 7V4h6l2 3h10v13H3V7Zm6 7h6M12 11v6',
+  notePlus: 'M14 3H5v18h14V8l-5-5Zm0 0v5h5M9 14h6M12 11v6'
 } as const
 
 export type IconName = keyof typeof paths
