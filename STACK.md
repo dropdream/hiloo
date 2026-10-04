@@ -130,7 +130,7 @@ La interfaz React se ejecuta en el renderer, aislado y sin acceso directo a Node
 
 El instalador registrará compatibilidad con `.md` y `.markdown` para aparecer en «Abrir con». El usuario decidirá si hiloo será la aplicación predeterminada. Se recibirán rutas tanto al arrancar como cuando una instancia ya esté abierta.
 
-La exportación producirá HTML con el CSS seleccionado. La integración del visualizador ya permite alternar código Markdown y edición visual, elegir formato de página e imprimir mediante Electron con CSS de impresión. La exportación directa HTML/PDF y una vista previa paginada siguen pendientes. Véase [vistas e impresión](docs/vistas-e-impresion.md).
+La exportación producirá HTML con el CSS seleccionado. La integración del visualizador ya permite alternar código Markdown y edición visual, elegir formato de página y revisar una vista previa paginada de un PDF temporal antes de imprimir mediante Electron con CSS de impresión. La exportación directa HTML/PDF sigue pendiente. Véase [vistas e impresión](docs/vistas-e-impresion.md).
 
 ## Entregas iniciales
 
@@ -178,7 +178,7 @@ El diálogo **Enlace** permite buscar y seleccionar una nota del cuaderno sin es
 
 Incluye etiquetas discretas, información al pasar el puntero, vista previa por clic y apertura explícita de la nota, zoom, ajuste y lista de notas/conexiones accesible con teclado; la búsqueda por nombre/ruta está en el árbol del sidebar. Los destinos inexistentes o exteriores se omiten, y Actualizar vuelve a explorar el disco. Los límites y exclusiones están en [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md).
 
-Siguen pendientes los filtros por sección, la vista local de vecinos, el mantenimiento de enlaces al mover/renombrar archivos y la exclusión de relaciones de un futuro índice automático. La lista de los últimos diez cuadernos se conserva en JSON local; no hay vigilancia automática. La visualización de diagramas dentro de una nota es otro alcance: [investigación de Mermaid, D2 y PlantUML](docs/investigacion-diagramas.md).
+Siguen pendientes los filtros por sección, la vista local de vecinos, el mantenimiento de enlaces al mover/renombrar archivos y la exclusión de relaciones de un futuro índice automático. La lista de los últimos diez cuadernos se conserva en JSON local; no hay vigilancia automática. Los bloques `mermaid` muestran flujos `flowchart`/`graph` en Vista impresión conservando código editable, con renderizado local y límites; alcance y seguridad: [flujos Mermaid](docs/estilo-markdown.md#flujos-mermaid). D2, PlantUML y otros tipos de diagrama permanecen pendientes.
 
 ## Referencias técnicas
 
