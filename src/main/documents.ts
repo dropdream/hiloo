@@ -2,11 +2,11 @@ import { app, dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } fro
 import { randomUUID } from 'node:crypto'
 import { constants, promises as fs } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { maxDocumentBytes, type DocumentResult, type DocumentSnapshot } from '../shared/documents'
+import { maxDocumentBytes, type DocumentPreviewResult, type DocumentPrintSnapshot, type DocumentResult, type DocumentSnapshot } from '../shared/documents'
 import { markdownProblem, safeImage } from '../shared/markdown'
-import { validatePageSettings } from '../shared/printing'
+import { validatePageSettings, type PageSettings } from '../shared/printing'
 import type { WorkspaceLinkResult, WorkspacePreviewResult } from '../shared/workspace'
-import { printDocument } from './printing'
+import { previewDocument, printDocument } from './printing'
 import { RecentWorkspaces } from './recent-workspaces'
 import { attachBrain } from './brain-service'
 import { createWorkspace, pathKey, scanWorkspace, validateWorkspaceNote, withinWorkspace, workspaceCreationParent, workspaceEntryName, type WorkspaceSession } from './workspace'
@@ -43,6 +43,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   let workspaceGeneration = 0
   let allowClose = false
   let pendingFlush: { id: string; resolve(error: string | null): void } | null = null
+  let printPreview: (DocumentPrintSnapshot & { settings: PageSettings }) | null = null
   const recentWorkspaces = new RecentWorkspaces(join(app.getPath('userData'), 'recent-workspaces.json'))
   const brain = attachBrain(window, trustedUrl)
   const channels: string[] = []
@@ -112,7 +113,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     })
   }
 
-  function errorResult(error: unknown): DocumentResult {
+  function errorResult(error: unknown): Extract<DocumentResult, { status: 'error' }> {
     const code = (error as NodeJS.ErrnoException).code
     const message = code === 'EACCES' || code === 'EPERM'
       ? 'No hay permiso para acceder al archivo. Elegir otra ubicación con Guardar como.'
@@ -122,7 +123,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     return { status: 'error', message }
   }
 
-  async function operation(action: () => Promise<DocumentResult>): Promise<DocumentResult> {
+  async function operation<T extends DocumentResult>(action: () => Promise<T>): Promise<T | Exclude<DocumentResult, { status: 'ok' }>> {
     if (busy) return { status: 'cancelled' }
     setBusy(true)
     try {
@@ -481,12 +482,43 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (typeof asCopy !== 'boolean') return { status: 'error', message: 'Opción de guardado no válida.' }
     return operation(() => save(asCopy))
   })
-  handle('document:print', (settings) => {
+  handle('document:print-preview', (settings): Promise<DocumentPreviewResult> | DocumentPreviewResult => {
     if (!validatePageSettings(settings)) return { status: 'error', message: 'El formato de página no es válido. Usar medidas entre 50 y 1000 mm, con un decimal como máximo.' }
-    return operation(async () => {
+    return operation<DocumentPreviewResult>(async () => {
+      printPreview = null
       if (document.updateError) throw new Error(document.updateError)
       const problem = markdownProblem(document.content)
       if (problem) throw new Error(problem)
+      const snapshot = { documentId: document.id, revision: document.revision }
+      const result = await previewDocument(window, settings)
+      if (result.status !== 'ok') return result
+      if (document.id !== snapshot.documentId || document.revision !== snapshot.revision) throw new Error('El documento cambió durante la vista previa. Vuelve a preparar la impresión.')
+      printPreview = { ...snapshot, settings: { ...settings } }
+      return { ...result, ...snapshot }
+    })
+  })
+  handle('document:print', (settings, snapshot) => {
+    if (!validatePageSettings(settings)) return { status: 'error', message: 'El formato de página no es válido. Usar medidas entre 50 y 1000 mm, con un decimal como máximo.' }
+    if (snapshot !== undefined && (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)
+      || ![Object.prototype, null].includes(Object.getPrototypeOf(snapshot))
+      || Object.keys(snapshot).length !== 2 || !Object.keys(snapshot).every((key) => key === 'documentId' || key === 'revision')
+      || typeof (snapshot as DocumentPrintSnapshot).documentId !== 'string' || !(snapshot as DocumentPrintSnapshot).documentId || (snapshot as DocumentPrintSnapshot).documentId.length > 100
+      || !Number.isSafeInteger((snapshot as DocumentPrintSnapshot).revision) || (snapshot as DocumentPrintSnapshot).revision < 0)) {
+      return { status: 'error', message: 'La confirmación de impresión no es válida. Vuelve a preparar la vista previa.' }
+    }
+    return operation(async () => {
+      if (snapshot !== undefined) {
+        const confirmed = snapshot as DocumentPrintSnapshot
+        if (!printPreview || confirmed.documentId !== document.id || confirmed.revision !== document.revision
+          || confirmed.documentId !== printPreview.documentId || confirmed.revision !== printPreview.revision
+          || settings.format !== printPreview.settings.format || settings.widthMm !== printPreview.settings.widthMm || settings.heightMm !== printPreview.settings.heightMm) {
+          throw new Error('El documento o el formato cambió desde la vista previa. Vuelve a preparar la impresión.')
+        }
+      }
+      if (document.updateError) throw new Error(document.updateError)
+      const problem = markdownProblem(document.content)
+      if (problem) throw new Error(problem)
+      printPreview = null
       return printDocument(window, settings)
     })
   })
