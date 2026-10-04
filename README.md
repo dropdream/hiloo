@@ -1,9 +1,10 @@
 # hiloo
 
-Editor visual local de Markdown para Windows. La entrega 2 abre, edita y guarda archivos reales sobre una superficie azul marino, con barra compacta y controles nativos. Arranca con un documento vacío, sin ejemplos precargados. El manifiesto conserva la versión inicial 0.1.0; esta entrega no publica una release.
+Editor local de Markdown para Windows con edición de código y vista de impresión con fondo blanco o nocturno, interfaz Día/Noche, barra compacta y controles nativos. Abre, edita y guarda archivos reales. Arranca con un documento vacío, sin ejemplos precargados. El manifiesto conserva la versión inicial 0.1.0; esta integración no publica una release.
 
 ## Uso y alcance actual
 
+- Vistas **Markdown** y **Vista impresión** con fondo independiente **Papel blanco / Fondo noche**, tema de interfaz **Día / Noche**, **Formato de página** (Carta, Oficio, Legal, A4, A5 o personalizado) e **Imprimir** con Ctrl+P. Medidas, conservación del contenido y límites: [vistas e impresión](docs/vistas-e-impresion.md).
 - Abrir, Guardar y Guardar como; párrafo, títulos 1–6, negrita, cursiva, tachado, listas, tareas, citas, tablas, imágenes, enlaces y deshacer/rehacer.
 - Atajos: Ctrl+O, Ctrl+S, Ctrl+Mayús+S, Ctrl+B, Ctrl+I, Ctrl+Z y Ctrl+Y. Los formatos también tienen botones con estado activo y tooltips.
 - Estado visible de cambios pendientes, operación en curso, guardado y errores. Abrir/cerrar pide guardar, descartar o cancelar si hay cambios.
@@ -11,7 +12,7 @@ Editor visual local de Markdown para Windows. La entrega 2 abre, edita y guarda 
 - Cada escritura confirma únicamente la revisión guardada. Las ediciones posteriores quedan pendientes; un error de sincronización o tamaño impide guardar silenciosamente una versión anterior.
 - Archivos UTF-8 .md/.markdown de hasta 2 MiB. El original sin editar conserva sus bytes. Al editar se normaliza la sintaxis Markdown admitida; los formatos conocidos fuera del alcance se bloquean, y una conversión visual incompatible se muestra en solo lectura.
 
-No hay autoguardado, recuperación tras cierre forzado, cuadernos, SQLite, asociaciones de archivos, selector de temas ni exportación. Los enlaces se pueden insertar, editar y quitar; se muestran sin navegar. Las imágenes admiten URL HTTP(S) y rutas relativas dentro de la carpeta del Markdown guardado; los archivos locales no se copian ni se incrustan en el Markdown. El pegado importa texto plano. Los límites, formatos y normalización se detallan en [estilo Markdown](docs/estilo-markdown.md); las variables de interfaz, en [tema de interfaz](docs/tema-interfaz.md). [STACK.md](STACK.md) distingue implementación y proyecto futuro.
+No hay autoguardado, recuperación tras cierre forzado, cuadernos, SQLite, asociaciones de archivos, importación de temas personalizados ni exportación directa HTML/PDF. Los enlaces se pueden insertar, editar y quitar; se muestran sin navegar. Las imágenes admiten URL HTTP(S) y rutas relativas dentro de la carpeta del Markdown guardado; los archivos locales no se copian ni se incrustan en el Markdown. El pegado importa texto plano. Los límites, formatos y normalización se detallan en [estilo Markdown](docs/estilo-markdown.md); las variables de interfaz, en [tema de interfaz](docs/tema-interfaz.md). [STACK.md](STACK.md) distingue implementación y proyecto futuro.
 
 ## Requisitos y comandos
 
@@ -53,6 +54,8 @@ El ejecutable necesita toda su carpeta win-unpacked. El paquete local no está f
 El renderer mantiene contextIsolation, sandbox y Node deshabilitado. El proceso principal accede a documentos elegidos mediante diálogos y resuelve imágenes raster dentro de su carpeta, comprobando la ruta real, el tamaño y la firma del archivo; no se expone IO genérico. IPC valida emisor, marco principal, URL y argumentos. La CSP de producción admite scripts propios e imágenes HTTP(S)/data, bloquea objetos y marcos; la navegación y nuevas ventanas están denegadas. React Refresh admite scripts inline solo en desarrollo.
 
 ## Verificación
+
+La integración de vistas e impresión pasó compilación y empaquetado Windows, una suite completa con **114 pruebas aprobadas y 6 omitidas** (fotografía privada opcional no disponible), y dos regresiones adicionales local/empaquetada después del ajuste final del botón Imprimir. Se comprobaron PDF A5 y personalizado horizontal, fondo blanco y un documento de 12 páginas con imágenes y tablas. El [informe de auditoría independiente](docs/auditoria-integracion-visualizador.md) detalla las correcciones y límites. No se enviaron trabajos a impresoras físicas.
 
 La ampliación de tablas, imágenes, enlaces, tareas y tachado incluye pruebas de regresión y una [auditoría independiente de tablas e imágenes](docs/auditoria-tablas-imagenes.md). El informe registra los fallos encontrados, las correcciones verificadas y el alcance de las pruebas. Las tablas anchas mantienen columnas legibles con desplazamiento horizontal propio.
 

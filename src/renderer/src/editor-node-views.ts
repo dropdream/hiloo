@@ -82,22 +82,26 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
       fallback.className = 'image-fallback'
       dom.append(image, fallback)
       const unavailable = () => { image.hidden = true; fallback.hidden = false }
-      image.addEventListener('error', unavailable)
-      image.addEventListener('load', () => { image.hidden = false; fallback.hidden = true })
+      image.addEventListener('error', () => { dom.dataset.loading = 'false'; unavailable() })
+      image.addEventListener('load', () => { dom.dataset.loading = 'false'; image.hidden = false; fallback.hidden = true })
       const render = async () => {
         const current = ++version
+        dom.dataset.loading = 'true'
         image.alt = String(node.attrs.alt ?? '')
         image.title = String(node.attrs.title ?? '')
         fallback.textContent = `Imagen no disponible: ${node.attrs.alt || node.attrs.src || 'sin dirección'}`
         unavailable()
         image.removeAttribute('src')
         const src = String(node.attrs.src ?? '')
-        if (!safeImage(src)) return
+        if (!safeImage(src)) { dom.dataset.loading = 'false'; return }
         try {
           const id = documentId()
           const resolved = /^https?:/i.test(src) ? src : id ? await window.documents.imageSource(id, src) : null
-          if (!destroyed && current === version && resolved) image.src = resolved
-        } catch { /* Keep the alt text and original Markdown when a file is unavailable. */ }
+          if (!destroyed && current === version) {
+            if (resolved) image.src = resolved
+            else dom.dataset.loading = 'false'
+          }
+        } catch { if (!destroyed && current === version) dom.dataset.loading = 'false' }
       }
       const unsubscribe = window.documents.onDocument((snapshot) => {
         if (snapshot.id === documentId() && snapshot.hasFile && !/^https?:/i.test(String(node.attrs.src))) void render()

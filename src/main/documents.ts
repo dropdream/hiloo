@@ -4,6 +4,8 @@ import { constants, promises as fs } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { maxDocumentBytes, type DocumentResult, type DocumentSnapshot } from '../shared/documents'
 import { markdownProblem, safeImage } from '../shared/markdown'
+import { validatePageSettings } from '../shared/printing'
+import { printDocument } from './printing'
 
 const maxImageBytes = 10 * 1024 * 1024
 
@@ -44,7 +46,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   }
   const setBusy = (value: boolean) => {
     busy = value
-    if (!window.isDestroyed()) window.webContents.send('document:busy', value)
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('document:busy', value)
   }
 
   function validateSender(event: IpcMainInvokeEvent): void {
@@ -85,6 +87,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
         pendingFlush = { id, resolve: (error) => { clearTimeout(timeout); pendingFlush = null; resolve(error) } }
         window.webContents.send('document:flush', id)
       })
+      if (window.isDestroyed() || window.webContents.isDestroyed()) return { status: 'cancelled' }
       if (error) { document.updateError = error; document.revision++; emit(); throw new Error(error) }
       return await action()
     } catch (error) { return errorResult(error) } finally { setBusy(false) }
@@ -230,6 +233,15 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (typeof asCopy !== 'boolean') return { status: 'error', message: 'Opción de guardado no válida.' }
     return operation(() => save(asCopy))
   })
+  handle('document:print', (settings) => {
+    if (!validatePageSettings(settings)) return { status: 'error', message: 'El formato de página no es válido. Usar medidas entre 50 y 1000 mm, con un decimal como máximo.' }
+    return operation(async () => {
+      if (document.updateError) throw new Error(document.updateError)
+      const problem = markdownProblem(document.content)
+      if (problem) throw new Error(problem)
+      return printDocument(window, settings)
+    })
+  })
   handle('document:open', () => operation(async () => {
     if (!await confirmChanges()) return { status: 'cancelled' }
     const revision = document.revision
@@ -269,5 +281,6 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       if (result.status === 'error' && !window.isDestroyed()) window.webContents.send('document:error', result.message)
     })
   })
+  window.webContents.once('destroyed', () => pendingFlush?.resolve('La ventana se cerró antes de confirmar la edición.'))
   window.once('closed', () => channels.forEach((channel) => ipcMain.removeHandler(channel)))
 }

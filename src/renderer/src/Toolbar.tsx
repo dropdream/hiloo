@@ -32,6 +32,7 @@ function Tool({ name, shortcut, icon, label, active, disabled, opensDialog, onCl
 interface Props {
   busy: boolean
   ready: boolean
+  canSave: boolean
   selection: SelectionState
   onOpen(): void
   onSave(copy: boolean): void
@@ -45,7 +46,7 @@ interface Props {
   onRemoveImage(): boolean
 }
 
-export function EditorToolbar({ busy, ready, selection, onOpen, onSave, onFormat, onFocusEditor, ...actions }: Props) {
+export function EditorToolbar({ busy, ready, canSave, selection, onOpen, onSave, onFormat, onFocusEditor, ...actions }: Props) {
   const disabled = busy || !ready
   const [dialog, setDialog] = useState<{ kind: InsertKind; selection: SelectionState } | null>(null)
   const openDialog = (kind: InsertKind) => setDialog({ kind, selection })
@@ -53,8 +54,8 @@ export function EditorToolbar({ busy, ready, selection, onOpen, onSave, onFormat
     <Toolbar.Root className={styles.toolbar} aria-label="Herramientas del documento" loop>
       <div className={styles.group}>
         <Tool name="Abrir" label="Abrir" shortcut="Ctrl+O" icon="open" disabled={busy} onClick={onOpen} />
-        <Tool name="Guardar" label="Guardar" shortcut="Ctrl+S" icon="save" disabled={disabled} onClick={() => onSave(false)} />
-        <Tool name="Guardar como" shortcut="Ctrl+Shift+S" icon="copy" disabled={disabled} onClick={() => onSave(true)} />
+        <Tool name="Guardar" label="Guardar" shortcut="Ctrl+S" icon="save" disabled={busy || !canSave} onClick={() => onSave(false)} />
+        <Tool name="Guardar como" shortcut="Ctrl+Shift+S" icon="copy" disabled={busy || !canSave} onClick={() => onSave(true)} />
       </div>
       <Toolbar.Separator className={styles.separator} />
       <Select.Root value={selection.block} disabled={disabled} onValueChange={(level) => onFormat('block', level)}>
