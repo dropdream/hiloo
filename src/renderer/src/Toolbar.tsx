@@ -2,6 +2,7 @@ import * as Toolbar from '@radix-ui/react-toolbar'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import * as Select from '@radix-ui/react-select'
 import { useState } from 'react'
+import type { WorkspaceSnapshot } from '../../shared/workspace'
 import { Icon, type IconName } from './Icon'
 import type { Format, SelectionState, TableAction } from './editor'
 import { InsertDialog, type InsertKind } from './InsertDialog'
@@ -34,19 +35,20 @@ interface Props {
   ready: boolean
   canSave: boolean
   selection: SelectionState
+  workspace: WorkspaceSnapshot | null
   onOpen(): void
   onSave(copy: boolean): void
   onFormat(action: Format, level?: string): void
   onFocusEditor(): void
   onInsertTable(rows: number, columns: number): boolean
   onTable(action: TableAction): boolean
-  onLink(value: { href: string; title: string; text: string }): boolean
+  onLink(value: { href: string; title: string; text: string; fallbackText?: string }): boolean
   onRemoveLink(): boolean
   onImage(value: { src: string; alt: string; title: string }): boolean
   onRemoveImage(): boolean
 }
 
-export function EditorToolbar({ busy, ready, canSave, selection, onOpen, onSave, onFormat, onFocusEditor, ...actions }: Props) {
+export function EditorToolbar({ busy, ready, canSave, selection, workspace, onOpen, onSave, onFormat, onFocusEditor, ...actions }: Props) {
   const disabled = busy || !ready
   const [dialog, setDialog] = useState<{ kind: InsertKind; selection: SelectionState } | null>(null)
   const openDialog = (kind: InsertKind) => setDialog({ kind, selection })
@@ -91,6 +93,6 @@ export function EditorToolbar({ busy, ready, canSave, selection, onOpen, onSave,
         <Tool name="Rehacer" shortcut="Ctrl+Y" icon="redo" disabled={disabled || !selection.redo} onClick={() => onFormat('redo')} />
       </div>
     </Toolbar.Root>
-    {dialog ? <InsertDialog kind={dialog.kind} selection={dialog.selection} disabled={disabled} {...actions} onClose={() => { setDialog(null); onFocusEditor() }} /> : null}
+    {dialog ? <InsertDialog kind={dialog.kind} selection={dialog.selection} workspace={workspace} disabled={disabled} {...actions} onClose={() => { setDialog(null); onFocusEditor() }} /> : null}
   </Tooltip.Provider>
 }

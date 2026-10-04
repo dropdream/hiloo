@@ -1,6 +1,6 @@
 # hiloo — Definición inicial del producto y stack
 
-Fecha: 2026-10-03. Estado: entregas 1 y 2 implementadas localmente; cuadernos, historial persistente y exportación pendientes.
+Fecha: 2026-10-03. Estado: entregas 1 y 2, navegación básica de cuadernos y Cerebro implementados localmente; índices automáticos, catálogo de cuadernos, historial persistente y exportación pendientes.
 
 ## Identidad y objetivo
 
@@ -83,6 +83,8 @@ Se entregará un `SKILL.md` independiente, acompañado de referencias y ejemplos
 El skill documentará el comportamiento efectivamente implementado. Los procedimientos no disponibles se identificarán como pendientes.
 
 ## Organización de cuadernos
+
+La navegación básica ya permite abrir una carpeta como cuaderno, crear subcarpetas y notas `.md`, buscar por nombre/ruta en sus subcarpetas y abrir notas desde el sidebar o Cerebro. El árbol incluye carpetas vacías; la creación permite elegir el destino sin sustituir archivos existentes. Cambiar cuaderno mantiene separados los listados y grafos y confirma cambios pendientes. Véase [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md). El índice, la orientación para IA y el resto de las operaciones de organización descritas a continuación siguen siendo planificación.
 
 - Un cuaderno corresponde a una carpeta; sus secciones son subcarpetas.
 - Cada nota es un archivo `.md`, con enlaces relativos a otras notas y recursos.
@@ -167,13 +169,15 @@ No incluye inserción de enlaces mediante diálogo, imágenes, tablas, subrayado
 
 Tras validar el editor, ampliar a cuadernos, mantenimiento de índices y enlaces, cambios externos, versiones persistentes y exportación e impresión con CSS personalizado. Medir arranque y memoria con documentos representativos conforme crezca la aplicación.
 
-## Cerebro — planificado
+## Cerebro — navegación básica implementada
 
-Vista de grafo local por cuaderno: cada archivo `.md` será un nodo y sus enlaces Markdown relativos entre notas serán conexiones dirigidas. Los `.md` seguirán siendo la fuente de verdad; el grafo será reconstruible, sin IA ni servicio online.
+Vista de grafo local por cuaderno mediante [Cytoscape.js](https://js.cytoscape.org/), empaquetado con la aplicación. Cada `.md` o `.markdown` es un nodo y sus enlaces Markdown relativos hacia otras notas del mismo cuaderno son conexiones dirigidas. El grafo se reconstruye desde las versiones guardadas, sin IA ni servicio online.
 
-Se prevén clic para abrir una nota, búsqueda, zoom, filtros por sección y una vista local de conexiones de la nota actual. Las relaciones del índice automático se excluirán por defecto para no saturar el mapa. Antes de depender del grafo habrá que resolver destinos relativos, enlaces rotos y actualizaciones al renombrar o mover archivos. Se implementará después de los cuadernos y los enlaces internos fiables.
+El diálogo **Enlace** permite buscar y seleccionar una nota del cuaderno sin escribir rutas. La dirección relativa se calcula y valida en el proceso principal; el archivo conserva un enlace Markdown estándar. La nota de origen debe estar guardada. Los enlaces web y la edición manual siguen disponibles.
 
-[Cytoscape.js](https://js.cytoscape.org/) es el candidato inicial a evaluar, pendiente de prueba de rendimiento y diseño; no está instalado ni es una decisión definitiva. React Flow queda como alternativa si se desea editar conexiones con tarjetas. No se prevén cambios automáticos de relaciones inferidos por IA. Las mejoras se desarrollarán por partes sobre el estado estable de main.
+Incluye etiquetas discretas, información al pasar el puntero, vista previa por clic y apertura explícita de la nota, zoom, ajuste y lista de notas/conexiones accesible con teclado; la búsqueda por nombre/ruta está en el árbol del sidebar. Los destinos inexistentes o exteriores se omiten, y Actualizar vuelve a explorar el disco. Los límites y exclusiones están en [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md).
+
+Siguen pendientes los filtros por sección, la vista local de vecinos, el mantenimiento de enlaces al mover/renombrar archivos y la exclusión de relaciones de un futuro índice automático. No hay catálogo persistente ni vigilancia automática. La visualización de diagramas dentro de una nota es otro alcance: [investigación de Mermaid, D2 y PlantUML](docs/investigacion-diagramas.md).
 
 ## Referencias técnicas
 

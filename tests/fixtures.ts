@@ -7,7 +7,7 @@ export const test = base.extend<{ application: ElectronApplication; editorPage: 
     delete environment.ELECTRON_RUN_AS_NODE
     delete environment.ELECTRON_RENDERER_URL
     const application = await electron.launch({
-      ...(testInfo.project.name === 'packaged' ? { executablePath: resolve('dist/win-unpacked/hiloo.exe') } : { args: ['.'] }),
+      ...(testInfo.project.name === 'packaged' ? { executablePath: resolve(process.env.HILOO_TEST_PACKAGED_PATH ?? 'dist/win-unpacked/hiloo.exe') } : { args: ['.'] }),
       env: environment
     })
     await application.evaluate(({ dialog }) => {
