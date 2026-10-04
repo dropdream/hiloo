@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { titleBarHeight, windowBackground, windowControlsColor } from '../shared/window'
 import { attachDocuments } from './documents'
+import { attachAppearance } from './appearance'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -37,6 +38,7 @@ function createWindow(): void {
   const url = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
     ? new URL(process.env.ELECTRON_RENDERER_URL).href : pathToFileURL(filePath).href
   attachDocuments(window, url)
+  attachAppearance(window, url)
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {

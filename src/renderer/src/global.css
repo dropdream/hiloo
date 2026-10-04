@@ -6,6 +6,8 @@
   --hiloo-accent: #85c7ee;
   --hiloo-hover: #2e5271;
   --hiloo-active: #294d6b;
+  --hiloo-selection: #387096;
+  --hiloo-on-accent: #203f5d;
   --hiloo-ui-font: 'Segoe UI', system-ui, sans-serif;
   --hiloo-document-font: 'Segoe UI', system-ui, sans-serif;
   --hiloo-document-text: #edf3f8;
@@ -17,10 +19,25 @@
   font-family: var(--hiloo-ui-font);
 }
 
+html[data-theme='day'] {
+  --hiloo-window-background: #fff !important;
+  --hiloo-bar: #f3f6f9;
+  --hiloo-border: #c5d1dc;
+  --hiloo-text: #203f5d;
+  --hiloo-muted: #536b81;
+  --hiloo-accent: #185f90;
+  --hiloo-hover: #e5edf4;
+  --hiloo-active: #dce8f2;
+  --hiloo-document-text: #203f5d;
+  --hiloo-selection: #c7e4f5;
+  --hiloo-on-accent: #fff;
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
 button, select { font-family: inherit; }
 button:focus-visible, [role='combobox']:focus-visible { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
-::selection { color: var(--hiloo-text); background: #387096; }
+::selection { color: var(--hiloo-text); background: var(--hiloo-selection); }
 
 html,
 body,
@@ -30,4 +47,11 @@ body,
   margin: 0;
   overflow: hidden;
   background-color: var(--hiloo-window-background);
+}
+
+@media print {
+  html:root { --hiloo-window-background: #fff !important; background: #fff !important; }
+  :root { color-scheme: light; --hiloo-document-text: #000; --hiloo-text: #000; --hiloo-muted: #333; --hiloo-accent: #000; --hiloo-border: #888; --hiloo-bar: #fff; --hiloo-active: #fff; --hiloo-document-size: 11pt; --hiloo-document-line-height: 1.5; }
+  html, body, #root { width: auto; height: auto; overflow: visible; background: #fff; color: #000; }
+  dialog, [role='tooltip'] { display: none !important; }
 }

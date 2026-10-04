@@ -1,6 +1,8 @@
 # Presentación y conservación de Markdown — entrega 2
 
-Milkdown con CommonMark, extensiones GFM y ProseMirror convierte Markdown en edición visual. El contenedor público es `.hiloo-document`; las reglas viven en `src/renderer/src/Editor.module.css`. Los archivos guardan contenido y estructura, no las preferencias visuales. No hay exportación HTML/PDF, impresión ni instalación de temas en esta versión.
+Milkdown con CommonMark, extensiones GFM y ProseMirror convierte Markdown en edición visual. El contenedor público es `.hiloo-document`; las reglas viven en `src/renderer/src/Editor.module.css`. Los archivos guardan contenido y estructura, no las preferencias visuales. La integración del visualizador añade edición de código Markdown y [formato de página e impresión](vistas-e-impresion.md). No hay exportación directa HTML/PDF ni instalación de temas en esta versión.
+
+**Vista impresión** comienza con fondo blanco y texto oscuro; permite elegir Fondo noche independientemente del tema Día/Noche de la interfaz. El contenedor de esa vista sobrescribe las variables de color del documento; los valores base de la tabla siguiente corresponden al tema nocturno fuera de ese contenedor. La salida impresa siempre usa papel blanco y aplica tamaño de papel, márgenes de 15 mm y tipografía de 11 pt mediante reglas `@media print`.
 
 | Variable | Predeterminado | Alcance |
 | --- | --- | --- |
@@ -37,7 +39,7 @@ La clase repetida iguala la especificidad del contenedor privado: cargar esa reg
 - Se aceptan archivos `.md` o `.markdown` UTF-8, con o sin BOM, hasta 2 MiB. No se aceptan enlaces simbólicos. El pegado importa únicamente texto plano; arrastrar contenido al editor está desactivado.
 - Sin edición, Guardar deja intactos los bytes originales; Guardar como los copia. Deshacer hasta el estado guardado permite recuperar esa condición. Después de editar se serializa todo el documento: pueden cambiar títulos Setext a `#`, delimitadores `__` a `**`, viñetas, indentación, escapes, líneas vacías y salto final. Se conserva el BOM y se usan CRLF si el original los tenía; archivos con saltos mixtos se normalizan. El formato visual y el texto admitido se preservan, no la ortografía exacta de Markdown.
 - HTML, referencias (incluidas imágenes y enlaces por referencia), notas al pie, frontmatter YAML/TOML, atributos de código y protocolos peligrosos se rechazan antes de sustituir el documento actual. Bloques que comienzan por `$$` o `:::` se bloquean conservadoramente, incluso si aparecen en ejemplos de código. Extensiones no reconocidas por CommonMark/GFM pueden considerarse texto literal; no se promete compatibilidad con dialectos arbitrarios ni interpretación de fórmulas inline.
-- Antes de habilitar edición se compara la estructura analizada del original con su serialización visual. Si difieren, se muestra el original en solo lectura y se desactiva guardar. Este control es conservador, no una garantía universal de equivalencia entre dialectos.
+- Antes de habilitar edición visual se compara la estructura analizada del original con su serialización. Si difieren, se bloquea la vista visual; cambiar a Markdown permite revisar y corregir el código conservado. Este control es conservador, no una garantía universal de equivalencia entre dialectos.
 
 Ejemplo compatible para pruebas manuales, sin precargarlo en la aplicación:
 

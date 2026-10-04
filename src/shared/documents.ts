@@ -1,3 +1,5 @@
+import type { PageSettings } from './printing'
+
 export const maxDocumentBytes = 2 * 1024 * 1024
 
 export interface DocumentSnapshot {
@@ -18,6 +20,7 @@ export interface DocumentBridge {
   current(): Promise<DocumentSnapshot>
   open(): Promise<DocumentResult>
   save(asCopy?: boolean): Promise<DocumentResult>
+  print(settings: PageSettings): Promise<DocumentResult>
   update(id: string, content: string): Promise<DocumentResult>
   imageSource(id: string, source: string): Promise<string | null>
   onDocument(callback: (document: DocumentSnapshot) => void): () => void
