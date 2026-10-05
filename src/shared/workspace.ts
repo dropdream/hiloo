@@ -1,4 +1,5 @@
 import type { DocumentResult, RecentEntry } from './documents'
+import type { NotebookIndexUsage } from './notebook-index'
 
 export interface WorkspaceNote {
   id: string
@@ -25,6 +26,8 @@ export interface WorkspaceSnapshot {
   links: WorkspaceLink[]
   currentNoteId: string | null
   warnings: string[]
+  /** The root contains indice.md, índice.md or index.md (any case). */
+  hasIndex: boolean
 }
 
 export type RecentWorkspace = RecentEntry
@@ -48,5 +51,6 @@ export interface WorkspaceBridge {
   preview(noteId: string): Promise<WorkspacePreviewResult>
   linkTo(noteId: string): Promise<WorkspaceLinkResult>
   create(parentId: string, name: string, kind: 'folder' | 'note'): Promise<DocumentResult>
+  createIndex(workspaceId: string, usage: NotebookIndexUsage): Promise<DocumentResult>
   onChange(callback: (workspace: WorkspaceSnapshot | null) => void): () => void
 }
