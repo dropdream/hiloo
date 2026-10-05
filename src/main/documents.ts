@@ -4,6 +4,7 @@ import { constants, promises as fs } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { maxDocumentBytes, type DocumentPreviewResult, type DocumentPrintSnapshot, type DocumentResult, type DocumentSnapshot } from '../shared/documents'
 import { markdownProblem, safeImage } from '../shared/markdown'
+import { buildNotebookIndex, isNotebookIndexUsage, notebookIndexFile } from '../shared/notebook-index'
 import { validatePageSettings, type PageSettings } from '../shared/printing'
 import type { WorkspaceLinkResult, WorkspacePreviewResult } from '../shared/workspace'
 import { previewDocument, printDocument } from './printing'
@@ -354,6 +355,51 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
         await refreshWorkspace()
         const result = errorResult(error)
         throw new Error(`Se creó ${name}, pero no se pudo completar su apertura o actualización. ${result.status === 'error' ? result.message : 'Actualiza el cuaderno.'}`)
+      }
+    })
+  })
+  handle('workspace:create-index', (workspaceId, usage) => {
+    const owner = workspace
+    if (!owner || typeof workspaceId !== 'string' || workspaceId !== owner.id || !isNotebookIndexUsage(usage)) {
+      return { status: 'error', message: 'El cuaderno o el uso del índice no es válido.' }
+    }
+    return operation(async () => {
+      if (!await confirmChanges()) return { status: 'cancelled' }
+      if (workspace !== owner) throw new Error('El cuaderno cambió durante el guardado. Selecciona la carpeta de nuevo.')
+      const revision = document.revision
+      owner.snapshot = await scanWorkspace(owner, document.path)
+      emitWorkspace()
+      if (owner.snapshot.hasIndex) throw new Error('El cuaderno ya tiene un índice. No se sobrescribió.')
+      const parent = await workspaceCreationParent(owner, owner.id, 'note')
+      if (workspace !== owner || document.revision !== revision) {
+        throw new Error('Llegaron cambios durante la creación. La edición actual se conserva; vuelve a intentarlo.')
+      }
+      const now = new Date()
+      const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      const content = buildNotebookIndex({ name: owner.snapshot.name, usage, date, notes: owner.snapshot.notes.map((note) => note.relativePath) })
+      const problem = markdownProblem(content)
+      if (problem) throw new Error(problem)
+      if (Buffer.byteLength(content, 'utf8') > maxDocumentBytes) throw new Error('El índice supera el límite de 2 MB de esta entrega.')
+      const target = join(parent, notebookIndexFile)
+      try {
+        await fs.writeFile(target, content, { encoding: 'utf8', flag: 'wx' })
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Apareció un índice en el cuaderno. No se sobrescribió.')
+        throw error
+      }
+      try {
+        await validateWorkspaceNote(owner, target)
+        if (workspace !== owner) throw new Error('El cuaderno cambió. Actualízalo antes de continuar.')
+        await openPath(target, revision, owner)
+        const createdId = owner.ids.get(pathKey(target))
+        if (workspace !== owner || !createdId || !owner.paths.has(createdId)) {
+          throw new Error('El índice creado no aparece en el listado actualizado. Comprueba los avisos y los cambios externos del cuaderno.')
+        }
+        return { status: 'ok' }
+      } catch (error) {
+        await refreshWorkspace()
+        const result = errorResult(error)
+        throw new Error(`Se creó ${notebookIndexFile}, pero no se pudo completar su apertura o actualización. ${result.status === 'error' ? result.message : 'Actualiza el cuaderno.'}`)
       }
     })
   })

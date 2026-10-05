@@ -32,6 +32,20 @@ Seleccionar una entrada vuelve a abrir esa carpeta sin usar el selector de Windo
 
 La lista se guarda localmente en `recent-workspaces.json`, dentro del directorio de datos de hiloo, y permanece al reiniciar la aplicación. Solo registra carpetas elegidas con **Abrir cuaderno**, **Cambiar cuaderno** o la propia lista; abrir o guardar documentos sueltos no añade sus carpetas. Volver a abrir un cuaderno lo coloca primero sin duplicarlo. No se abre automáticamente el último cuaderno al iniciar.
 
+## Índice del cuaderno
+
+Al elegir una carpeta con **Abrir cuaderno**, **Cambiar cuaderno** o **Cuadernos recientes**, hiloo pregunta **¿Qué uso le darás al cuaderno?** si su raíz no contiene ya `indice.md`, `índice.md` o `index.md` (sin distinguir mayúsculas). No pregunta al abrir un documento suelto, al actualizar ni al crear notas, ni cuando se cancela el selector o la confirmación de cambios pendientes.
+
+Cada opción crea `indice.md` en la raíz y lo abre en el editor:
+
+- **IA**: título `Índice — <cuaderno>`, una sección **Instrucciones para IA** con reglas para agentes (leer primero el índice, una nota por tema, enlaces Markdown relativos para Cerebro, no borrar ni sobrescribir sin petición, mantener el mapa, escribir en español y consultar primero el catálogo de la [skill hiloo-notes](../skills/hiloo-notes/SKILL.md) cuando esté disponible) y un **Mapa de notas**.
+- **Humano**: título con el nombre del cuaderno, **Introducción** y **Secciones** con apartados de ejemplo pendientes de escribir, y la lista de **Notas**.
+- **Ambos**: las instrucciones para IA, que permiten completar los apartados pendientes a petición de la persona, seguidas de las secciones para la persona y el **Mapa de notas**.
+
+El mapa enlaza las notas existentes con rutas relativas codificadas, por ejemplo `[clientes/Caso uno](clientes/Caso%20uno.md)`, hasta 200 notas; si hay más, una línea indica que la lista es parcial. Esos enlaces aparecen como conexiones en Cerebro. El contenido usa solo Markdown admitido por el editor visual.
+
+**Ahora no** o Escape cierran el diálogo sin crear nada; volverá a ofrecerse la próxima vez que se elija ese cuaderno sin índice. El archivo se crea en modo exclusivo: nunca sustituye un índice existente, incluso si aparece mientras el diálogo está abierto; en ese caso se muestra un aviso y el diálogo permanece abierto. Como al crear notas, el listado debe estar completo y dentro de sus límites. El renderer solo envía el identificador del cuaderno activo y el uso elegido; ruta y contenido se calculan en el proceso principal. hiloo no actualiza el índice después: al crear, mover o renombrar notas, mantenlo a mano o pídeselo a tu IA.
+
 ## Crear carpetas y notas
 
 **Nueva carpeta** y **Nueva nota .md** abren un formulario con nombre y **Carpeta de destino**. Elige la raíz del cuaderno o una subcarpeta; seleccionar una carpeta en el árbol la propone como destino. Las carpetas vacías también aparecen en el árbol.
@@ -75,4 +89,4 @@ Se puede acercar, alejar y ajustar el encuadre. **Notas y conexiones** ofrece na
 
 La exploración está limitada a 1.000 notas, 10.000 entradas, 16 niveles de subcarpetas y 32 MiB leídos por actualización; cada nota admite hasta 2 MiB y el grafo hasta 10.000 conexiones. Los avisos indican resultados parciales. Se omiten nombres que comienzan por punto, `node_modules` y enlaces simbólicos o junctions.
 
-La lectura reside en el proceso principal. El renderer recibe identificadores opacos y rutas relativas para las notas, y solo puede abrir notas del cuaderno activo. Los recientes incluyen la ruta de la carpeta para mostrarla, pero su apertura exige un identificador registrado; no acepta rutas arbitrarias desde el renderer. El grafo utiliza Cytoscape.js empaquetado localmente, sin servicio remoto. Esta entrega no crea índices automáticos, no mueve archivos y no implementa historial persistente de versiones de documentos.
+La lectura reside en el proceso principal. El renderer recibe identificadores opacos y rutas relativas para las notas, y solo puede abrir notas del cuaderno activo. Los recientes incluyen la ruta de la carpeta para mostrarla, pero su apertura exige un identificador registrado; no acepta rutas arbitrarias desde el renderer. El grafo utiliza Cytoscape.js empaquetado localmente, sin servicio remoto. El [índice del cuaderno](#índice-del-cuaderno) solo se crea a petición al elegir un cuaderno y no se mantiene automáticamente. Esta entrega no mueve archivos y no implementa historial persistente de versiones de documentos.

@@ -75,6 +75,7 @@ const workspace: WorkspaceBridge = {
   preview: (noteId) => ipcRenderer.invoke('workspace:preview', noteId),
   linkTo: (noteId) => ipcRenderer.invoke('workspace:link-to', noteId),
   create: (parentId, name, kind) => ipcRenderer.invoke('workspace:create', parentId, name, kind),
+  createIndex: (workspaceId, usage) => ipcRenderer.invoke('workspace:create-index', workspaceId, usage),
   onChange: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, value: WorkspaceSnapshot | null) => callback(value)
     ipcRenderer.on('workspace:changed', listener)

@@ -38,6 +38,8 @@ test('cuaderno explora subcarpetas, filtra por ruta y abre notas Markdown', asyn
   await page.getByRole('button', { name: 'Mostrar cuaderno', exact: true }).click()
   await chooseOpen(application, root)
   await page.getByRole('button', { name: 'Abrir cuaderno', exact: true }).click()
+  // A notebook without an index offers to create one; this flow declines it.
+  await page.getByRole('dialog', { name: '¿Qué uso le darás al cuaderno?' }).getByRole('button', { name: 'Ahora no', exact: true }).click()
   const sidebar = page.getByRole('complementary', { name: 'Notas del cuaderno' })
   await expect(sidebar.getByRole('button', { name: 'Abrir nota:', exact: false })).toHaveCount(2)
   await sidebar.getByRole('searchbox', { name: 'Buscar notas' }).fill('clientes/')

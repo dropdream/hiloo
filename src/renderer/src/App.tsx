@@ -3,11 +3,13 @@ import { maxDocumentBytes, type DocumentSnapshot, type DocumentResult, type Docu
 import { defaultPageSettings, pageMarginMm, type PageSettings } from '../../shared/printing'
 import type { WindowTheme } from '../../shared/window'
 import type { WorkspaceSnapshot } from '../../shared/workspace'
+import type { NotebookIndexUsage } from '../../shared/notebook-index'
 import { scopedPrintStyle } from '../../shared/settings'
 import { MarkdownEditor, emptySelection, type EditorController } from './editor'
 import { EditorToolbar } from './Toolbar'
 import { PageControls } from './PageControls'
 import { PrintStyleDialog } from './PrintStyleDialog'
+import { NotebookIndexDialog } from './NotebookIndexDialog'
 import { Sidebar } from './Sidebar'
 import { ZoomBar, clampZoom, zoomStep } from './ZoomBar'
 import { useRecentList } from './use-recent-list'
@@ -55,6 +57,8 @@ export function App() {
   const workspaceArea = useRef<HTMLElement>(null)
   const [printStyle, setPrintStyle] = useState('')
   const [printStyleOpen, setPrintStyleOpen] = useState(false)
+  // Notebook chosen explicitly whose root has no index yet.
+  const [indexPrompt, setIndexPrompt] = useState<{ id: string; name: string } | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [brainOpen, setBrainOpen] = useState(false)
   const [focusDocument, setFocusDocument] = useState(false)
@@ -127,7 +131,7 @@ export function App() {
   useEffect(() => {
     // Focus only after React removes the drawer's inert background. A frame
     // scheduled from the IPC response can run before that DOM commit.
-    if (!focusDocument || busy || brainOpen || (sidebarOpen && narrow) || (mode === 'visual' && !ready)) return
+    if (!focusDocument || busy || brainOpen || indexPrompt || (sidebarOpen && narrow) || (mode === 'visual' && !ready)) return
     const active = globalThis.document.activeElement
     const movedOn = active && active !== globalThis.document.body && active !== focusOrigin.current && !workspaceArea.current?.contains(active)
     if (!movedOn) {
@@ -135,7 +139,7 @@ export function App() {
       else controller.current?.focus()
     }
     setFocusDocument(false)
-  }, [focusDocument, busy, brainOpen, sidebarOpen, narrow, mode, ready, document?.id])
+  }, [focusDocument, busy, brainOpen, indexPrompt, sidebarOpen, narrow, mode, ready, document?.id])
 
   useEffect(() => {
     let active = true
@@ -240,7 +244,7 @@ export function App() {
     return () => window.removeEventListener('keydown', keydown)
   }, [sidebarOpen, narrow])
 
-  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create' | 'recent' | 'recent-document', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }): Promise<boolean> => {
+  const runWorkspace = useCallback(async (action: 'choose' | 'refresh' | 'open' | 'create' | 'recent' | 'recent-document' | 'index', noteId?: string, creation?: { name: string; kind: 'folder' | 'note' }, usage?: NotebookIndexUsage): Promise<boolean> => {
     if (locked.current) return false
     locked.current = true
     focusOrigin.current = globalThis.document.activeElement
@@ -251,7 +255,9 @@ export function App() {
     try {
       const failure = await drainUpdates()
       if (failure) throw new Error(failure)
-      const result = action === 'open'
+      const result = action === 'index'
+        ? usage ? await window.workspace.createIndex(noteId ?? '', usage) : { status: 'error' as const, message: 'Elige un uso para el índice.' }
+        : action === 'open'
         ? await window.workspace.open(noteId ?? '')
         : action === 'recent'
           ? await window.workspace.openRecent(noteId ?? '')
@@ -261,20 +267,25 @@ export function App() {
             ? await window.workspace.create(noteId ?? '', creation?.name ?? '', creation?.kind ?? 'note')
             : await window.workspace[action]()
       if (result.status === 'error') {
-        if (action === 'create' || action === 'recent' || action === 'recent-document') throw new Error(result.message)
+        if (action === 'create' || action === 'recent' || action === 'recent-document' || action === 'index') throw new Error(result.message)
         setError(result.message)
         if (window.innerWidth <= 700) setSidebarOpen(false)
       }
       if (result.status !== 'ok') return false
-      const opensNote = action === 'open' || action === 'recent-document' || (action === 'create' && creation?.kind === 'note')
+      const opensNote = action === 'open' || action === 'recent-document' || action === 'index' || (action === 'create' && creation?.kind === 'note')
       if (action === 'choose' || action === 'recent' || opensNote) setBrainOpen(false)
+      if (action === 'choose' || action === 'recent') {
+        // Only an explicit notebook choice offers to create its index.
+        const chosen = await window.workspace.current().catch(() => null)
+        if (chosen && !chosen.hasIndex) setIndexPrompt({ id: chosen.id, name: chosen.name })
+      }
       if (opensNote) {
         if (window.innerWidth <= 700) setSidebarOpen(false)
         setFocusDocument(true)
       }
       return true
     } catch (failure) {
-      if (action === 'create' || action === 'recent' || action === 'recent-document') throw failure
+      if (action === 'create' || action === 'recent' || action === 'recent-document' || action === 'index') throw failure
       setError(failure instanceof Error ? failure.message : 'No se pudo abrir el cuaderno.')
       if (window.innerWidth <= 700) setSidebarOpen(false)
       return false
@@ -284,6 +295,20 @@ export function App() {
       controller.current?.setEditable(true)
     }
   }, [drainUpdates])
+
+  const createIndex = useCallback(async (usage: NotebookIndexUsage): Promise<string | null> => {
+    if (!indexPrompt) return 'El cuaderno ya no está disponible. Vuelve a abrirlo.'
+    try {
+      return await runWorkspace('index', indexPrompt.id, undefined, usage) ? null : 'No se creó el índice. Revisa los cambios pendientes y vuelve a intentarlo.'
+    } catch (failure) { return failure instanceof Error ? failure.message : 'No se pudo crear el índice. Vuelve a intentarlo.' }
+  }, [indexPrompt, runWorkspace])
+
+  const closeIndexPrompt = useCallback(() => setIndexPrompt(null), [])
+  const indexFallbackFocus = useCallback(() => {
+    // After a notebook switch the sidebar remounts; Cambiar cuaderno replaces the control that opened the dialog.
+    const target = sidebarPanel.current?.querySelector<HTMLButtonElement>('[data-choose-notebook]:not(:disabled)') ?? sidebarButton.current
+    target?.focus()
+  }, [])
 
   const openBrain = async () => {
     if (await runWorkspace('refresh')) {
@@ -453,6 +478,7 @@ export function App() {
     </header>
     <style>{`@page { size: ${pageSettings.widthMm}mm ${pageSettings.heightMm}mm; margin: ${pageMarginMm}mm; background: #fff; } :root { --hiloo-print-height: ${pageSettings.heightMm - 2 * pageMarginMm}mm; }`}</style>
     {printStyle.trim() ? <style data-print-style="">{scopedPrintStyle(printStyle)}</style> : null}
+    {indexPrompt ? <NotebookIndexDialog key={indexPrompt.id} name={indexPrompt.name} onChoose={createIndex} onDismiss={closeIndexPrompt} onFallbackFocus={indexFallbackFocus} /> : null}
     {printStyleOpen ? <PrintStyleDialog value={printStyle} onSave={savePrintStyle} onClose={() => setPrintStyleOpen(false)} /> : null}
     <div className={styles.body}>
       {sidebarOpen ? <>
