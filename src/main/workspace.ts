@@ -5,6 +5,7 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import { maxDocumentBytes } from '../shared/documents'
+import { isNotebookIndexName } from '../shared/notebook-index'
 import type { WorkspaceSnapshot } from '../shared/workspace'
 
 const parser = unified().use(remarkParse).use(remarkGfm)
@@ -35,7 +36,7 @@ export async function createWorkspace(path: string): Promise<WorkspaceSession> {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Elegir una carpeta normal, sin enlaces simbólicos.')
   const root = await fs.realpath(path)
   const id = randomUUID()
-  return { id, root, ids: new Map(), paths: new Map(), folders: new Map(), listing: { entries: 0, complete: false }, snapshot: { id, name: basename(root) || root, notes: [], folders: [], links: [], currentNoteId: null, warnings: [] } }
+  return { id, root, ids: new Map(), paths: new Map(), folders: new Map(), listing: { entries: 0, complete: false }, snapshot: { id, name: basename(root) || root, notes: [], folders: [], links: [], currentNoteId: null, warnings: [], hasIndex: false } }
 }
 
 /** Revalidate every component: a previously indexed directory may have become a junction. */
@@ -108,6 +109,7 @@ export async function scanWorkspace(workspace: WorkspaceSession, currentPath: st
   let entries = 0
   let bytesRead = 0
   let complete = true
+  let hasIndex = false
   const pending = [{ path: workspace.root, depth: 0 }]
   const root = await fs.realpath(workspace.root)
   if (pathKey(root) !== pathKey(workspace.root) || (await fs.lstat(root)).isSymbolicLink()) throw new Error('La carpeta seleccionada cambió de ubicación.')
@@ -121,6 +123,7 @@ export async function scanWorkspace(workspace: WorkspaceSession, currentPath: st
       const stream = await fs.opendir(directory.path)
       for await (const entry of stream) {
         if (++entries > maxEntries) { complete = false; break }
+        if (directory.depth === 0 && isNotebookIndexName(entry.name)) hasIndex = true
         if (entry.isSymbolicLink() || entry.name.startsWith('.') || entry.name.toLowerCase() === 'node_modules') continue
         const path = resolve(directory.path, entry.name)
         if (entry.isDirectory()) {
@@ -190,5 +193,5 @@ export async function scanWorkspace(workspace: WorkspaceSession, currentPath: st
   workspace.paths = paths
   workspace.folders = folderPaths
   workspace.listing = { entries, complete }
-  return { id: workspace.id, name: workspace.snapshot.name, notes, folders, links, currentNoteId: currentPath ? byPath.get(pathKey(currentPath)) ?? null : null, warnings: [...warnings] }
+  return { id: workspace.id, name: workspace.snapshot.name, notes, folders, links, currentNoteId: currentPath ? byPath.get(pathKey(currentPath)) ?? null : null, warnings: [...warnings], hasIndex }
 }

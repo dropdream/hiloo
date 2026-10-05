@@ -1,6 +1,6 @@
 # hiloo — Definición inicial del producto y stack
 
-Fecha: 2026-10-04. Estado: entregas 1 y 2, navegación básica de cuadernos, recientes persistentes, Cerebro e índice global SQLite para IA implementados localmente; índices Markdown automáticos, historial persistente y exportación pendientes.
+Fecha: 2026-10-05. Estado: entregas 1 y 2, navegación básica de cuadernos, recientes persistentes, Cerebro, índice global SQLite para IA y creación opcional de `indice.md` al elegir un cuaderno implementados localmente; mantenimiento automático de índices Markdown, historial persistente y exportación pendientes.
 
 ## Identidad y objetivo
 
@@ -85,7 +85,7 @@ El skill documenta el comportamiento implementado y distingue las operaciones ma
 
 ## Organización de cuadernos
 
-La navegación básica ya permite abrir una carpeta como cuaderno, crear subcarpetas y notas `.md`, buscar por nombre/ruta en sus subcarpetas y abrir notas desde el sidebar o Cerebro. El árbol incluye carpetas vacías; la creación permite elegir el destino sin sustituir archivos existentes. Cambiar cuaderno mantiene separados los listados y grafos y confirma cambios pendientes. Véase [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md). El índice, la orientación para IA y el resto de las operaciones de organización descritas a continuación siguen siendo planificación.
+La navegación básica ya permite abrir una carpeta como cuaderno, crear subcarpetas y notas `.md`, buscar por nombre/ruta en sus subcarpetas y abrir notas desde el sidebar o Cerebro. El árbol incluye carpetas vacías; la creación permite elegir el destino sin sustituir archivos existentes. Cambiar cuaderno mantiene separados los listados y grafos y confirma cambios pendientes. Al elegir explícitamente un cuaderno sin índice en su raíz, hiloo ofrece crear `indice.md` para uso de IA, humano o ambos, con instrucciones para agentes, secciones para la persona y un mapa enlazado de las notas existentes; nunca sustituye un índice existente. Véase [cuadernos y Cerebro](docs/cuadernos-y-cerebro.md#índice-del-cuaderno). El mantenimiento automático del índice y el resto de las operaciones de organización descritas a continuación siguen siendo planificación.
 
 - Un cuaderno corresponde a una carpeta; sus secciones son subcarpetas.
 - Cada nota es un archivo `.md`, con enlaces relativos a otras notas y recursos.
