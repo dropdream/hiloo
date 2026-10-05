@@ -282,7 +282,7 @@ export function Sidebar({ workspace, busy, brainOpen, recentWorkspaces, recentLo
       <div className={styles.folder}>
         <button type="button" className={styles.folderName} title={workspace.name} aria-label={`Carpeta raíz: ${workspace.name}`} disabled={blocked} onClick={() => selectFolder(workspace.id)}><Icon name="open" />{workspace.name}</button>
         <div className={styles.folderActions}>
-          <button type="button" onClick={onChoose} disabled={busy}>Cambiar cuaderno</button>
+          <button type="button" data-choose-notebook="" onClick={onChoose} disabled={busy}>Cambiar cuaderno</button>
           <button type="button" className={styles.iconButton} onClick={onRefresh} disabled={busy} aria-label="Actualizar cuaderno" title="Actualizar cuaderno"><Icon name="refresh" /></button>
         </div>
       </div>

@@ -87,6 +87,7 @@ test('recientes persiste tras reiniciar y reabre sin selector de carpetas', asyn
     await nextPage.getByRole('button', { name: 'Mostrar cuaderno', exact: true }).click()
     await nextPage.getByRole('button', { name: 'Cuadernos recientes', exact: true }).click()
     await nextPage.getByRole('button', { name: `Abrir cuaderno reciente: ${root}`, exact: true }).click()
+    await nextPage.getByRole('dialog', { name: '¿Qué uso le darás al cuaderno?' }).getByRole('button', { name: 'Ahora no', exact: true }).click()
     await expect(nextPage.getByRole('button', { name: 'Abrir nota: nota.md', exact: true })).toBeVisible()
     expect((await nextPage.evaluate(() => window.workspace.current()))?.name).toBe('Cuaderno persistente')
     expect(await restarted.evaluate(({ dialog }) => (dialog.showOpenDialog as typeof dialog.showOpenDialog & { calls(): number }).calls())).toBe(0)
