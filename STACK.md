@@ -142,7 +142,7 @@ Se muestran los controles nativos de minimizar, maximizar/restaurar y cerrar med
 
 La variable CSS implementada es `--hiloo-window-background`, inicializada con `#f2f2f2` desde `src/shared/window.ts`. La misma fuente configura el fondo inicial de `BrowserWindow` y el overlay. Cambiar únicamente CSS en ejecución no sincroniza los controles nativos. No hay todavía importación de temas ni contrato completo de personalización. El procedimiento real está en `README.md`.
 
-`README.md` en español, scripts npm, lockfile y configuración Windows x64/NSIS están implementados. La consolidación de la entrega 2 incorpora el código y la documentación a main del repositorio privado [dropdream/hiloo](https://github.com/dropdream/hiloo). No se ha publicado una release ni instalado la aplicación en el sistema.
+`README.md` en español, scripts npm, lockfile y configuración Windows x64/NSIS están implementados. La consolidación de la entrega 2 incorpora el código y la documentación a main del repositorio público [dropdream/hiloo](https://github.com/dropdream/hiloo). No se ha publicado una release ni instalado la aplicación en el sistema.
 
 Verificación local del 2026-10-03, en Windows x64 10.0.26300:
 

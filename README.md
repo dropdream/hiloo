@@ -47,3 +47,7 @@ El guardado es manual: todavía no hay autoguardado ni historial de versiones.
 - [Consultar tus cuadernos desde herramientas de IA](docs/cerebro-sqlite.md)
 
 Para desarrollar o contribuir, revisa la [guía de desarrollo](docs/desarrollo.md) y las [reglas del repositorio](AGENTS.md).
+
+## Licencia
+
+hiloo es software libre bajo la [licencia MIT](LICENSE).
