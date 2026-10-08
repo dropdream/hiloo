@@ -1,9 +1,32 @@
-.surface { max-width: var(--hiloo-document-width); margin: 0 auto; padding: 40px 48px 96px; min-height: 100%; }
-.surface :global(.hiloo-document) { min-height: calc(100vh - 220px); outline: none; color: var(--hiloo-document-text); font: var(--hiloo-document-size)/var(--hiloo-document-line-height) var(--hiloo-document-font); overflow-wrap: anywhere; caret-color: var(--hiloo-accent); }
+.surface {
+  max-width: var(--hiloo-document-width);
+  margin: 0 auto;
+  padding: 40px 48px 96px;
+  min-height: 100%;
+}
+.surface :global(.hiloo-document) {
+  min-height: calc(100vh - 220px);
+  outline: none;
+  color: var(--hiloo-document-text);
+  font: var(--hiloo-document-size) / var(--hiloo-document-line-height) var(--hiloo-document-font);
+  overflow-wrap: anywhere;
+  caret-color: var(--hiloo-accent);
+}
 .surface :global(.hiloo-document:focus-visible) { outline: none; }
 .surface :global(.hiloo-document > :first-child) { margin-top: 0; }
 .surface :global(.hiloo-document p) { margin: 0 0 1em; }
-.surface :global(.hiloo-document h1), .surface :global(.hiloo-document h2), .surface :global(.hiloo-document h3), .surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { font-family: var(--hiloo-ui-font); font-weight: 650; line-height: 1.25; margin: 1.35em 0 .55em; letter-spacing: -.025em; }
+.surface :global(.hiloo-document h1),
+.surface :global(.hiloo-document h2),
+.surface :global(.hiloo-document h3),
+.surface :global(.hiloo-document h4),
+.surface :global(.hiloo-document h5),
+.surface :global(.hiloo-document h6) {
+  font-family: var(--hiloo-ui-font);
+  font-weight: 650;
+  line-height: 1.25;
+  margin: 1.35em 0 0.55em;
+  letter-spacing: -0.025em;
+}
 .surface :global(.hiloo-document h1) { font-size: 2em; }
 .surface :global(.hiloo-document h2) { font-size: 1.55em; }
 .surface :global(.hiloo-document h3) { font-size: 1.25em; }
@@ -11,60 +34,233 @@
 .surface :global(.hiloo-document strong) { font-weight: 700; }
 .surface :global(.hiloo-document em) { font-style: italic; }
 .surface :global(.hiloo-document del) { text-decoration: line-through; }
-.surface :global(.hiloo-document li[data-item-type="task"]) { position: relative; list-style: none; }
-.surface :global(.hiloo-document li[data-item-type="task"] > input) { position: absolute; left: -1.35em; top: .4em; width: 1em; height: 1em; margin: 0; accent-color: var(--hiloo-accent); cursor: pointer; }
-.surface :global(.hiloo-document li[data-item-type="task"] > input:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 3px; }
-.surface :global(.hiloo-document li[data-checked="true"] > .list-item-content > p) { color: var(--hiloo-muted); }
-.surface :global(.document-table) { max-width: 100%; overflow-x: auto; margin: 1.25em 0; }
-.surface :global(.document-table:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
-.surface :global(.hiloo-document table) { border-collapse: collapse; width: 100%; min-width: calc(var(--table-columns, 1) * 7em); table-layout: fixed; }
-.surface :global(.hiloo-document th), .surface :global(.hiloo-document td) { position: relative; min-width: 48px; border: 1px solid var(--hiloo-border); padding: .55em .7em; vertical-align: top; }
-.surface :global(.hiloo-document th) { background: var(--hiloo-bar); font-weight: 650; }
+.surface :global(.hiloo-document li[data-item-type='task']) {
+  position: relative;
+  list-style: none;
+}
+.surface :global(.hiloo-document li[data-item-type='task'] > input) {
+  position: absolute;
+  left: -1.35em;
+  top: 0.4em;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  accent-color: var(--hiloo-accent);
+  cursor: pointer;
+}
+.surface :global(.hiloo-document li[data-item-type='task'] > input:focus-visible) {
+  outline: 2px solid var(--hiloo-accent);
+  outline-offset: 3px;
+}
+.surface :global(.hiloo-document li[data-checked='true'] > .list-item-content > p) { color: var(--hiloo-muted); }
+.surface :global(.document-table) {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1.25em 0;
+}
+.surface :global(.document-table:focus-visible) {
+  outline: 2px solid var(--hiloo-accent);
+  outline-offset: 2px;
+}
+.surface :global(.hiloo-document table) {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: calc(var(--table-columns, 1) * 7em);
+  table-layout: fixed;
+}
+.surface :global(.hiloo-document th),
+.surface :global(.hiloo-document td) {
+  position: relative;
+  min-width: 48px;
+  border: 1px solid var(--hiloo-border);
+  padding: 0.55em 0.7em;
+  vertical-align: top;
+}
+.surface :global(.hiloo-document th) {
+  background: var(--hiloo-bar);
+  font-weight: 650;
+}
 .surface :global(.hiloo-document th p), .surface :global(.hiloo-document td p) { margin: 0; }
-.surface :global(.hiloo-document .selectedCell::after) { content: ''; position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--hiloo-accent) 16%, transparent); }
-.surface :global(.document-image) { display: inline-block; max-width: 100%; vertical-align: middle; }
-.surface :global(.document-image img) { max-width: 100%; height: auto; border-radius: 3px; }
-.surface :global(.image-fallback) { display: inline-block; padding: .5em .75em; border: 1px dashed var(--hiloo-border); background: var(--hiloo-bar); color: var(--hiloo-muted); font-size: .85em; }
+.surface :global(.hiloo-document .selectedCell::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--hiloo-accent) 16%, transparent);
+}
+.surface :global(.document-image) {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.surface :global(.document-image img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+.surface :global(.image-fallback) {
+  display: inline-block;
+  padding: 0.5em 0.75em;
+  border: 1px dashed var(--hiloo-border);
+  background: var(--hiloo-bar);
+  color: var(--hiloo-muted);
+  font-size: 0.85em;
+}
 .surface :global(.document-image [hidden]) { display: none; }
 .surface :global(.hiloo-document ul), .surface :global(.hiloo-document ol) { padding-left: 1.65em; }
-.surface :global(.hiloo-document li) { padding-left: .3em; margin-bottom: .25em; }
-.surface :global(.hiloo-document li p) { margin-bottom: .25em; }
+.surface :global(.hiloo-document li) {
+  padding-left: 0.3em;
+  margin-bottom: 0.25em;
+}
+.surface :global(.hiloo-document li p) { margin-bottom: 0.25em; }
 .surface :global(.hiloo-document li::marker) { color: var(--hiloo-muted); }
-.surface :global(.hiloo-document blockquote) { margin: 1.2em 0; padding: .1em 0 .1em 1.1em; border-left: 2px solid var(--hiloo-accent); color: var(--hiloo-muted); }
+.surface :global(.hiloo-document blockquote) {
+  margin: 1.2em 0;
+  padding: 0.1em 0 0.1em 1.1em;
+  border-left: 2px solid var(--hiloo-accent);
+  color: var(--hiloo-muted);
+}
 .surface :global(.hiloo-document blockquote p:last-child) { margin-bottom: 0; }
-.surface :global(.hiloo-document a) { color: var(--hiloo-accent); text-decoration: underline; text-underline-offset: 3px; cursor: text; }
-.surface :global(.hiloo-document code) { font: .87em/1.5 Consolas, monospace; background: var(--hiloo-bar); border-radius: 3px; padding: .1em .25em; }
-.surface :global(.hiloo-document pre) { overflow: auto; padding: 16px; border: 1px solid var(--hiloo-border); border-radius: 4px; background: var(--hiloo-bar); }
-.surface :global(.hiloo-document pre code) { padding: 0; background: none; }
+.surface :global(.hiloo-document a) {
+  color: var(--hiloo-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: text;
+}
+.surface :global(.hiloo-document code) {
+  font:
+    0.87em/1.5 Consolas,
+    monospace;
+  background: var(--hiloo-bar);
+  border-radius: 3px;
+  padding: 0.1em 0.25em;
+}
+.surface :global(.hiloo-document pre) {
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--hiloo-border);
+  border-radius: 4px;
+  background: var(--hiloo-bar);
+}
+.surface :global(.hiloo-document pre code) {
+  padding: 0;
+  background: none;
+}
 .surface :global(.document-mermaid) { margin: 1.2em 0; }
-.surface :global(.document-mermaid > div) { padding: 16px; border-radius: 4px; background: #fff; color: #18212a; overflow: auto; }
-.surface :global(.document-mermaid img) { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.surface :global(.document-mermaid > div) {
+  padding: 16px;
+  border-radius: 4px;
+  background: #fff;
+  color: #18212a;
+  overflow: auto;
+}
+.surface :global(.document-mermaid img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
 .surface :global(.document-mermaid [hidden]) { display: none; }
-.surface :global(.document-mermaid summary) { cursor: pointer; color: var(--hiloo-document-text); font: .8em/1.6 var(--hiloo-ui-font); padding: .4em 0; }
-.surface :global(.document-mermaid summary:focus-visible) { outline: 2px solid var(--hiloo-accent); outline-offset: 2px; }
-.surface :global(.document-mermaid pre) { margin-top: .25em; }
-:global(.mermaid-staging) { position: fixed; left: -10000px; top: 0; width: 700px; visibility: hidden; pointer-events: none; background: #fff; color: #18212a; }
-.surface :global(.hiloo-document hr) { border: 0; border-top: 1px solid var(--hiloo-border); margin: 2em 0; }
+.surface :global(.document-mermaid summary) {
+  cursor: pointer;
+  color: var(--hiloo-document-text);
+  font: 0.8em/1.6 var(--hiloo-ui-font);
+  padding: 0.4em 0;
+}
+.surface :global(.document-mermaid summary:focus-visible) {
+  outline: 2px solid var(--hiloo-accent);
+  outline-offset: 2px;
+}
+.surface :global(.document-mermaid pre) { margin-top: 0.25em; }
+:global(.mermaid-staging) {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 700px;
+  visibility: hidden;
+  pointer-events: none;
+  background: #fff;
+  color: #18212a;
+}
+.surface :global(.hiloo-document hr) {
+  border: 0;
+  border-top: 1px solid var(--hiloo-border);
+  margin: 2em 0;
+}
 .surface :global(.ProseMirror-selectednode) { outline: 2px solid var(--hiloo-accent); }
 .surface :global(.ProseMirror-trailingBreak) { display: initial; }
-.original { color: var(--hiloo-text); white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.7 Consolas, monospace; }
-@media (max-width: 600px) { .surface { padding: 26px 24px 64px; } }
+.original {
+  color: var(--hiloo-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    14px/1.7 Consolas,
+    monospace;
+}
+@media (max-width: 600px) {
+  .surface { padding: 26px 24px 64px; }
+}
 @media print {
-  .surface { max-width: none; min-height: 0; margin: 0; padding: 0; }
-  .surface :global(.hiloo-document) { min-height: 0; color: #000; }
-  .surface :global(.hiloo-document h1), .surface :global(.hiloo-document h2), .surface :global(.hiloo-document h3), .surface :global(.hiloo-document h4), .surface :global(.hiloo-document h5), .surface :global(.hiloo-document h6) { break-after: avoid; }
-  .surface :global(.hiloo-document p) { orphans: 3; widows: 3; }
-  .surface :global(.hiloo-document a), .surface :global(.hiloo-document blockquote), .surface :global(.hiloo-document li[data-checked='true'] > .list-item-content > p) { color: #000; }
+  .surface {
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .surface :global(.hiloo-document) {
+    min-height: 0;
+    color: #000;
+  }
+  .surface :global(.hiloo-document h1),
+  .surface :global(.hiloo-document h2),
+  .surface :global(.hiloo-document h3),
+  .surface :global(.hiloo-document h4),
+  .surface :global(.hiloo-document h5),
+  .surface :global(.hiloo-document h6) {
+    break-after: avoid;
+  }
+  .surface :global(.hiloo-document p) {
+    orphans: 3;
+    widows: 3;
+  }
+  .surface :global(.hiloo-document a),
+  .surface :global(.hiloo-document blockquote),
+  .surface :global(.hiloo-document li[data-checked='true'] > .list-item-content > p) {
+    color: #000;
+  }
   .surface :global(.document-table) { overflow: visible; }
-  .surface :global(.hiloo-document table) { min-width: 0; width: 100%; table-layout: fixed; }
-  .surface :global(.hiloo-document th), .surface :global(.hiloo-document td) { min-width: 0; padding: .35em; overflow-wrap: anywhere; background: #fff; }
+  .surface :global(.hiloo-document table) {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .surface :global(.hiloo-document th),
+  .surface :global(.hiloo-document td) {
+    min-width: 0;
+    padding: 0.35em;
+    overflow-wrap: anywhere;
+    background: #fff;
+  }
   .surface :global(.hiloo-document tr) { break-inside: avoid; }
-  .surface :global(.hiloo-document pre) { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; background: #fff; }
+  .surface :global(.hiloo-document pre) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    background: #fff;
+  }
   .surface :global(.hiloo-document pre code) { white-space: pre-wrap; }
   .surface :global(.document-image) { break-inside: avoid; }
-  .surface :global(.document-image img) { width: auto; max-width: 100%; max-height: var(--hiloo-print-height); object-fit: contain; }
+  .surface :global(.document-image img) {
+    width: auto;
+    max-width: 100%;
+    max-height: var(--hiloo-print-height);
+    object-fit: contain;
+  }
   .surface :global(.document-mermaid) { break-inside: avoid; }
-  .surface :global(.document-mermaid img) { max-height: var(--hiloo-print-height); object-fit: contain; }
+  .surface :global(.document-mermaid img) {
+    max-height: var(--hiloo-print-height);
+    object-fit: contain;
+  }
   .surface :global(.document-mermaid[data-rendered='true'] details), .surface :global(.document-mermaid summary) { display: none; }
   .surface :global(.document-mermaid[data-rendered='false'] details > pre) { display: block; }
   .surface :global(.ProseMirror-selectednode) { outline: none; }

@@ -61,26 +61,35 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
         status.textContent = 'Preparando diagrama…'
         const source = node.textContent
         timer = setTimeout(() => {
-          void renderMermaid(source).then((src) => {
-            if (destroyed || current !== version) return
-            image.onload = () => {
+          void renderMermaid(source)
+            .then((src) => {
               if (destroyed || current !== version) return
-              dom.dataset.loading = 'false'
-              dom.dataset.rendered = 'true'
-              image.hidden = false
-              status.hidden = true
-            }
-            image.onerror = () => { if (!destroyed && current === version) failure('No se pudo cargar el diagrama. El código se conserva.') }
-            image.src = src
-          }).catch((error: unknown) => {
-            if (!destroyed && current === version) failure(error instanceof Error && /^(El flujo|Las directivas|Las imágenes|Solo se muestran)/.test(error.message)
-              ? error.message : 'No se pudo dibujar el flujo Mermaid. Revisa el código; su contenido se conserva.')
-          })
+              image.onload = () => {
+                if (destroyed || current !== version) return
+                dom.dataset.loading = 'false'
+                dom.dataset.rendered = 'true'
+                image.hidden = false
+                status.hidden = true
+              }
+              image.onerror = () => {
+                if (!destroyed && current === version) failure('No se pudo cargar el diagrama. El código se conserva.')
+              }
+              image.src = src
+            })
+            .catch((error: unknown) => {
+              if (!destroyed && current === version)
+                failure(
+                  error instanceof Error && /^(El flujo|Las directivas|Las imágenes|Solo se muestran)/.test(error.message)
+                    ? error.message
+                    : 'No se pudo dibujar el flujo Mermaid. Revisa el código; su contenido se conserva.'
+                )
+            })
         }, 150)
       }
       render()
       return {
-        dom, contentDOM,
+        dom,
+        contentDOM,
         update(next) {
           if (next.type !== node.type) return false
           const changed = next.textContent !== node.textContent || next.attrs.language !== node.attrs.language
@@ -90,7 +99,13 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
         },
         stopEvent: (event) => event.target === summary || preview.contains(event.target as globalThis.Node),
         ignoreMutation: (mutation) => mutation.type !== 'selection' && !contentDOM.contains(mutation.target),
-        destroy() { destroyed = true; version++; clearTimeout(timer); image.onload = null; image.onerror = null }
+        destroy() {
+          destroyed = true
+          version++
+          clearTimeout(timer)
+          image.onload = null
+          image.onerror = null
+        }
       }
     },
     table(initial) {
@@ -106,7 +121,8 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
       table.append(contentDOM)
       dom.append(table)
       return {
-        dom, contentDOM,
+        dom,
+        contentDOM,
         update(next) {
           if (next.type !== initial.type) return false
           resize(next.firstChild?.childCount ?? 1)
@@ -135,13 +151,22 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
       }
       checkbox.addEventListener('change', () => {
         const pos = getPos()
-        if (!editable() || pos === undefined) { render(); return }
+        if (!editable() || pos === undefined) {
+          render()
+          return
+        }
         view.dispatch(closeHistory(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: checkbox.checked })))
       })
       render()
       return {
-        dom, contentDOM,
-        update(next) { if (next.type !== node.type) return false; node = next; render(); return true },
+        dom,
+        contentDOM,
+        update(next) {
+          if (next.type !== node.type) return false
+          node = next
+          render()
+          return true
+        },
         stopEvent: (event) => event.target === checkbox,
         ignoreMutation: (mutation) => mutation.type !== 'selection' && (mutation.target === checkbox || mutation.target === dom)
       }
@@ -153,8 +178,7 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
       const dom = document.createElement('span')
       dom.className = 'document-image'
       dom.contentEditable = 'false'
-      // A quick return from an image dialog can look like a double click to
-      // ProseMirror. Select the atom directly for every primary-button click.
+      // Volver del diálogo puede parecer un doble clic; selecciona la imagen.
       dom.addEventListener('mousedown', (event) => {
         if (event.button !== 0 || !editable()) return
         const pos = getPos()
@@ -163,15 +187,27 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
         view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)))
         view.focus()
       })
-      dom.addEventListener('click', (event) => { if (event.button === 0) event.preventDefault() })
+      dom.addEventListener('click', (event) => {
+        if (event.button === 0) event.preventDefault()
+      })
       const image = document.createElement('img')
       image.draggable = false
       const fallback = document.createElement('span')
       fallback.className = 'image-fallback'
       dom.append(image, fallback)
-      const unavailable = () => { image.hidden = true; fallback.hidden = false }
-      image.addEventListener('error', () => { dom.dataset.loading = 'false'; unavailable() })
-      image.addEventListener('load', () => { dom.dataset.loading = 'false'; image.hidden = false; fallback.hidden = true })
+      const unavailable = () => {
+        image.hidden = true
+        fallback.hidden = false
+      }
+      image.addEventListener('error', () => {
+        dom.dataset.loading = 'false'
+        unavailable()
+      })
+      image.addEventListener('load', () => {
+        dom.dataset.loading = 'false'
+        image.hidden = false
+        fallback.hidden = true
+      })
       const render = async () => {
         const current = ++version
         dom.dataset.loading = 'true'
@@ -181,7 +217,10 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
         unavailable()
         image.removeAttribute('src')
         const src = String(node.attrs.src ?? '')
-        if (!safeImage(src)) { dom.dataset.loading = 'false'; return }
+        if (!safeImage(src)) {
+          dom.dataset.loading = 'false'
+          return
+        }
         try {
           const id = documentId()
           const resolved = /^https?:/i.test(src) ? src : id ? await window.documents.imageSource(id, src) : null
@@ -189,7 +228,9 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
             if (resolved) image.src = resolved
             else dom.dataset.loading = 'false'
           }
-        } catch { if (!destroyed && current === version) dom.dataset.loading = 'false' }
+        } catch {
+          if (!destroyed && current === version) dom.dataset.loading = 'false'
+        }
       }
       const unsubscribe = window.documents.onDocument((snapshot) => {
         if (snapshot.id === documentId() && snapshot.hasFile && !/^https?:/i.test(String(node.attrs.src))) void render()
@@ -197,7 +238,11 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
       void render()
       return {
         dom,
-        stopEvent: (event) => editable() && event instanceof MouseEvent && event.button === 0 && (event.type === 'mousedown' || event.type === 'click' || event.type === 'dblclick'),
+        stopEvent: (event) =>
+          editable() &&
+          event instanceof MouseEvent &&
+          event.button === 0 &&
+          (event.type === 'mousedown' || event.type === 'click' || event.type === 'dblclick'),
         update(next) {
           if (next.type !== node.type) return false
           const changed = next.attrs.src !== node.attrs.src || next.attrs.alt !== node.attrs.alt || next.attrs.title !== node.attrs.title
@@ -206,7 +251,11 @@ export function editorNodeViews(editable: () => boolean, documentId: () => strin
           return true
         },
         ignoreMutation: () => true,
-        destroy() { destroyed = true; version++; unsubscribe() }
+        destroy() {
+          destroyed = true
+          version++
+          unsubscribe()
+        }
       }
     }
   }

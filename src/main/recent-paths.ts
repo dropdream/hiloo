@@ -19,7 +19,6 @@ function validEntry(value: unknown): value is StoredEntry {
     && typeof entry.lastOpenedAt === 'string' && Number.isFinite(Date.parse(entry.lastOpenedAt))
 }
 
-// Recent notebooks and documents share one bounded, atomically written history format.
 export class RecentPaths {
   private entries: StoredEntry[] = []
   private loaded: Promise<void> | null = null
@@ -43,7 +42,7 @@ export class RecentPaths {
         if (!Array.isArray(stored)) return
         const paths = new Set<string>()
         const ids = new Set<string>()
-        // The stored order records actual opens even if the system clock moves backwards.
+        // El orden de apertura no depende de cambios en el reloj.
         this.entries = stored.filter(validEntry)
           .filter((entry) => {
             const key = pathKey(entry.path)
@@ -53,7 +52,7 @@ export class RecentPaths {
             return true
           }).slice(0, maxRecentEntries)
           .map(({ id, path, lastOpenedAt }) => ({ id, path, lastOpenedAt, name: basename(path) || path }))
-      } catch { /* A missing or damaged history must not prevent opening a notebook or document. */ }
+      } catch { /* Un historial dañado no impide abrir archivos. */ }
     })()
     return this.loaded
   }

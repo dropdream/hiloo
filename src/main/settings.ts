@@ -10,7 +10,12 @@ export function attachSettings(window: BrowserWindow, trustedUrl: string): void 
   const channels = ['settings:print-style', 'settings:set-print-style']
 
   function validateSender(event: IpcMainInvokeEvent): void {
-    if (window.isDestroyed() || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || event.senderFrame.url !== trustedUrl) {
+    if (
+      window.isDestroyed() ||
+      event.sender !== window.webContents ||
+      event.senderFrame !== window.webContents.mainFrame ||
+      event.senderFrame.url !== trustedUrl
+    ) {
       throw new Error('Origen de solicitud no permitido.')
     }
   }
@@ -26,8 +31,12 @@ export function attachSettings(window: BrowserWindow, trustedUrl: string): void 
         const { bytesRead } = await file.read(buffer, 0, buffer.length, 0)
         const css = new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, bytesRead))
         return printStyleProblem(css) ? '' : css
-      } finally { await file.close() }
-    } catch { return '' } // A missing or damaged file falls back to the default print style.
+      } finally {
+        await file.close()
+      }
+    } catch {
+      return ''
+    } // Un archivo ausente o dañado usa el estilo predeterminado.
   })
 
   ipcMain.handle('settings:set-print-style', async (event, css: unknown): Promise<DocumentResult> => {

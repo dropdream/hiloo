@@ -105,6 +105,26 @@ test('documentos recientes se listan, reabren y persisten tras reiniciar', async
   } finally { await closeApplication(restarted) }
 })
 
+test('CSS de impresión rechaza escapes del ámbito sin alterar las reglas guardadas', async ({ editorPage: page }) => {
+  const original = 'color: rgb(1, 2, 3); h1 { text-align: center; }'
+  expect((await page.evaluate((css) => window.settings.setPrintStyle(css), original)).status).toBe('ok')
+  for (const css of [
+    '} } body { display: none } /*',
+    '} } body { display: none } @media print { .hiloo-document {',
+    '& + * { display: none }',
+    ':is(&, body) { display: none }',
+    '+ * { display: none }',
+    '@media print { ~ * { display: none } }',
+    '@font-face { font-family: Global; src: url(https://example.com/font.woff2); }',
+    '@import "https://example.com/style.css";'
+  ]) {
+    expect((await page.evaluate((value) => window.settings.setPrintStyle(value), css)).status).toBe('error')
+    expect(await page.evaluate(() => window.settings.printStyle())).toBe(original)
+  }
+  expect(await page.locator('body').evaluate((element) => getComputedStyle(element).display)).not.toBe('none')
+  expect((await page.evaluate(() => window.settings.setPrintStyle('@media (min-width: 1px) { h1 { color: red; } }'))).status).toBe('ok')
+})
+
 test('CSS de impresión se guarda desde Configuraciones y solo se aplica al imprimir', async ({ application, editorPage: page }, testInfo) => {
   await page.getByRole('button', { name: 'Markdown', exact: true }).click()
   await page.getByRole('textbox', { name: 'Código Markdown', exact: true }).fill('# Título\n\nUn párrafo.\n')
@@ -133,7 +153,7 @@ test('CSS de impresión se guarda desde Configuraciones y solo se aplica al impr
   expect(await heading.evaluate((element) => getComputedStyle(element).textAlign)).toBe('center')
   expect(await heading.evaluate((element) => getComputedStyle(element).fontSize)).toBe('40px')
   expect(await heading.evaluate((element) => getComputedStyle(element.closest('.hiloo-document')!).fontFamily)).toContain('Georgia')
-  // Rules stay inside the document: the app chrome is unaffected.
+  // Las reglas no deben afectar a los controles de la aplicación.
   expect(await page.locator('body').evaluate((element) => getComputedStyle(element).fontFamily)).not.toContain('Georgia')
   await page.emulateMedia({ media: 'screen' })
 

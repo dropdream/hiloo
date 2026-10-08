@@ -5,6 +5,15 @@ import { markdownProblem, markdownSignature } from '../src/shared/markdown'
 
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF1cAAAAASUVORK5CYII=', 'base64')
 
+test('los literales de fórmulas y directivas se permiten dentro de bloques de código', () => {
+  for (const source of ['```text\n$$ importe\n::: ejemplo\n```\n', '    $$ importe\n    ::: ejemplo\n', 'Antes `código\n$$ importe\n::: ejemplo`\n', '`código` $$ importe\n']) {
+    expect(markdownProblem(source)).toBeNull()
+  }
+  for (const source of ['$$ importe\n', '::: ejemplo\n', '> $$ importe\n', '- ::: ejemplo\n']) {
+    expect(markdownProblem(source)).toContain('fórmulas o directivas')
+  }
+})
+
 test('validación GFM conserva casillas y alineación y bloquea contenido activo', () => {
   const source = '| A | B |\n| :--- | ---: |\n| ~~uno~~ | dos |\n\n- [ ] Pendiente\n- [x] Hecho\n\n![Foto](assets/foto.png "Título")\n'
   expect(markdownProblem(source)).toBeNull()
@@ -226,6 +235,6 @@ test('imágenes locales restringen lectura y actualizan su base al guardar como'
     const { id } = await window.documents.current()
     return window.documents.imageSource(id, 'pixel.png')
   })).toBeNull()
-  // A stale data URL would display the previous folder's image after Save As.
+  // Una URL de datos antigua mostraría la imagen de la carpeta anterior.
   await expect(img).not.toHaveAttribute('src')
 })

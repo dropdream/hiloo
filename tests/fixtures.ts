@@ -5,7 +5,7 @@ export async function launchApplication(testInfo: TestInfo): Promise<ElectronApp
   const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
   delete environment.ELECTRON_RUN_AS_NODE
   delete environment.ELECTRON_RENDERER_URL
-  // Notebook scans skip hidden folders, including the browser data beside test documents.
+  // La carpeta oculta del perfil queda fuera del escaneo de notas.
   const profile = testInfo.outputPath('.profile')
   const application = await electron.launch({
     ...(testInfo.project.name === 'packaged'

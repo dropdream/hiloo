@@ -17,6 +17,8 @@ test('recientes vacío se abre con teclado y Escape conserva el panel estrecho',
   await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThanOrEqual(420)
   await page.getByRole('button', { name: 'Mostrar cuaderno', exact: true }).click()
   const sidebar = page.getByRole('complementary', { name: 'Notas del cuaderno' })
+  // Espera el foco inicial del panel antes de dirigirlo a recientes.
+  await expect(sidebar.getByRole('button', { name: 'Cerrar panel de notas', exact: true })).toBeFocused()
   const trigger = sidebar.getByRole('button', { name: 'Cuadernos recientes', exact: true })
   const recent = sidebar.getByRole('region', { name: 'Lista de cuadernos recientes', exact: true })
   await trigger.focus()

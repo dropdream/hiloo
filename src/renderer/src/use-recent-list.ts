@@ -7,7 +7,7 @@ export interface RecentList<T> {
   reload(): void
 }
 
-// `load` and `subscribe` must be stable references, such as module-level functions.
+// load y subscribe deben ser estables para evitar nuevas suscripciones.
 export function useRecentList<T>(load: () => Promise<T[]>, subscribe: (callback: (items: T[]) => void) => () => void, failure: string): RecentList<T> {
   const [items, setItems] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,5 +39,5 @@ export function useRecentList<T>(load: () => Promise<T[]>, subscribe: (callback:
     return () => { request.current++; unsubscribe() }
   }, [reload, subscribe])
 
-  return { items, loading, error, reload: () => { void reload() } }
+  return { items, loading, error, reload: () => void reload() }
 }

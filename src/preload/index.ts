@@ -13,7 +13,7 @@ const api: DocumentBridge = {
   onRecentChange: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, value: RecentDocument[]) => callback(value)
     ipcRenderer.on('document:recent-changed', listener)
-    return () => { ipcRenderer.removeListener('document:recent-changed', listener) }
+    return () => void ipcRenderer.removeListener('document:recent-changed', listener)
   },
   save: (asCopy = false) => ipcRenderer.invoke('document:save', asCopy),
   printPreview: (settings) => ipcRenderer.invoke('document:print-preview', settings),
@@ -23,17 +23,17 @@ const api: DocumentBridge = {
   onDocument: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, document: DocumentSnapshot) => callback(document)
     ipcRenderer.on('document:changed', listener)
-    return () => { ipcRenderer.removeListener('document:changed', listener) }
+    return () => void ipcRenderer.removeListener('document:changed', listener)
   },
   onBusy: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, busy: boolean) => callback(busy)
     ipcRenderer.on('document:busy', listener)
-    return () => { ipcRenderer.removeListener('document:busy', listener) }
+    return () => void ipcRenderer.removeListener('document:busy', listener)
   },
   onError: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
     ipcRenderer.on('document:error', listener)
-    return () => { ipcRenderer.removeListener('document:error', listener) }
+    return () => void ipcRenderer.removeListener('document:error', listener)
   },
   onFlush: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, requestId: string) => {
@@ -41,7 +41,7 @@ const api: DocumentBridge = {
         .then((error) => ipcRenderer.invoke('document:flushed', requestId, error))
     }
     ipcRenderer.on('document:flush', listener)
-    return () => { ipcRenderer.removeListener('document:flush', listener) }
+    return () => void ipcRenderer.removeListener('document:flush', listener)
   }
 }
 
@@ -67,7 +67,7 @@ const workspace: WorkspaceBridge = {
   onRecentChange: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, value: RecentWorkspace[]) => callback(value)
     ipcRenderer.on('workspace:recent-changed', listener)
-    return () => { ipcRenderer.removeListener('workspace:recent-changed', listener) }
+    return () => void ipcRenderer.removeListener('workspace:recent-changed', listener)
   },
   choose: () => ipcRenderer.invoke('workspace:choose'),
   refresh: () => ipcRenderer.invoke('workspace:refresh'),
@@ -79,7 +79,7 @@ const workspace: WorkspaceBridge = {
   onChange: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, value: WorkspaceSnapshot | null) => callback(value)
     ipcRenderer.on('workspace:changed', listener)
-    return () => { ipcRenderer.removeListener('workspace:changed', listener) }
+    return () => void ipcRenderer.removeListener('workspace:changed', listener)
   }
 }
 

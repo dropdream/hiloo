@@ -61,6 +61,8 @@ El motor reutiliza los fragmentos de archivos sin cambios mediante hashes y actu
 
 Cada exploración admite hasta 1.000 notas, 10.000 entradas, 16 niveles y 32 MiB de contenido; cada nota admite hasta 2 MiB. Se conservan hasta 256 destinos de enlace por nota, con aviso si se supera ese límite. Las escrituras SQLite se agrupan en transacciones cortas y las exploraciones ceden ejecución entre documentos. Los trabajos tienen propietario y señal de actividad para impedir que dos procesos indexen simultáneamente el mismo cuaderno y permitir retomar un trabajo interrumpido.
 
+El estado de enlaces truncados se conserva por nota: sincronizar sin cambios o reiniciar no elimina el aviso ni convierte el índice parcial en completo. El esquema 2 migra automáticamente los índices anteriores, conserva sus identidades y relaciones manuales y vuelve a analizar las notas en la siguiente sincronización para calcular ese estado.
+
 Los cuadernos inaccesibles y las exploraciones parciales se señalan expresamente. Una exploración incompleta no equivale a que los archivos hayan sido borrados. Los nodos desaparecidos conservan identidad para no destruir las relaciones manuales; un renombrado externo no garantiza conservar el identificador anterior.
 
 Solo se exploran raíces registradas y archivos normales; se excluyen enlaces simbólicos, junctions, nombres que comienzan por punto y `node_modules`. Los enlaces hacia otros cuadernos se resuelven únicamente contra nodos registrados. La interfaz del renderer acepta identificadores y solicitudes validadas; no acepta SQL ni rutas arbitrarias para ampliar el catálogo.

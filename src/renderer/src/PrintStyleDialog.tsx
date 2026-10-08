@@ -40,30 +40,88 @@ export function PrintStyleDialog({ value, onSave, onClose }: Props) {
     event.preventDefault()
     if (saving) return
     const problem = printStyleProblem(css)
-    if (problem) { setError(problem); input.current?.focus(); return }
+    if (problem) {
+      setError(problem)
+      input.current?.focus()
+      return
+    }
     setSaving(true)
     setError('')
     const failure = await onSave(css)
     setSaving(false)
-    if (failure) { setError(failure); input.current?.focus() }
-    else onClose()
+    if (failure) {
+      setError(failure)
+      input.current?.focus()
+    } else onClose()
   }
 
-  return <dialog ref={dialog} className={styles.dialog} aria-labelledby={`${id}-title`} aria-describedby={`${id}-help`} onCancel={(event) => { event.preventDefault(); if (!saving) onClose() }}>
-    <form onSubmit={(event) => { void submit(event) }} noValidate>
-      <h2 id={`${id}-title`}>CSS de impresión</h2>
-      <div id={`${id}-help`} className={styles.help}>
-        <p>Define el formato de títulos, párrafos y texto al imprimir. Se aplica en la vista previa y en la impresión, no al editar ni al archivo Markdown.</p>
-        <p>Las reglas se limitan al documento: usa selectores como <code>h1</code>, <code>p</code>, <code>blockquote</code>, <code>table</code> o <code>code</code>. Las declaraciones sin selector afectan a todo el documento.</p>
-      </div>
-      <label htmlFor={`${id}-css`}>Reglas CSS</label>
-      <textarea ref={input} id={`${id}-css`} className={styles.editor} spellCheck={false} value={css} placeholder={example} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} disabled={saving} onChange={(event) => { setCss(event.target.value); setError('') }} />
-      {error ? <p role="alert" id={`${id}-error`} className={styles.error}>{error}</p> : null}
-      <footer>
-        <button type="button" className={styles.secondary} disabled={saving} onClick={() => { setCss(example); setError(''); input.current?.focus() }}>Usar ejemplo</button>
-        <button type="button" disabled={saving} onClick={onClose}>Cancelar</button>
-        <button type="submit" className={styles.primary} disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button>
-      </footer>
-    </form>
-  </dialog>
+  return (
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-help`}
+      onCancel={(event) => {
+        event.preventDefault()
+        if (!saving) onClose()
+      }}
+    >
+      <form
+        onSubmit={(event) => void submit(event)}
+        noValidate
+      >
+        <h2 id={`${id}-title`}>CSS de impresión</h2>
+        <div id={`${id}-help`} className={styles.help}>
+          <p>
+            Define el formato de títulos, párrafos y texto al imprimir. Se aplica en la vista previa y en la impresión, no al editar ni al archivo Markdown.
+          </p>
+          <p>
+            Las reglas se limitan al documento: usa selectores como <code>h1</code>, <code>p</code>, <code>blockquote</code>, <code>table</code> o{' '}
+            <code>code</code>. Las declaraciones sin selector afectan a todo el documento.
+          </p>
+        </div>
+        <label htmlFor={`${id}-css`}>Reglas CSS</label>
+        <textarea
+          ref={input}
+          id={`${id}-css`}
+          className={styles.editor}
+          spellCheck={false}
+          value={css}
+          placeholder={example}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          disabled={saving}
+          onChange={(event) => {
+            setCss(event.target.value)
+            setError('')
+          }}
+        />
+        {error ? (
+          <p role="alert" id={`${id}-error`} className={styles.error}>
+            {error}
+          </p>
+        ) : null}
+        <footer>
+          <button
+            type="button"
+            className={styles.secondary}
+            disabled={saving}
+            onClick={() => {
+              setCss(example)
+              setError('')
+              input.current?.focus()
+            }}
+          >
+            Usar ejemplo
+          </button>
+          <button type="button" disabled={saving} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className={styles.primary} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </footer>
+      </form>
+    </dialog>
+  )
 }

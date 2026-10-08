@@ -126,7 +126,7 @@ test('Ahora no y Escape no crean nada; cuadernos recientes también ofrecen el �
   await expect(dialog).toBeHidden()
   expect(await fs.readdir(root)).toEqual(['nota.md'])
 
-  // Opening a loose document never offers an index, even when it changes the notebook.
+  // Abrir un documento suelto no ofrece crear el índice.
   const loose = testInfo.outputPath('Suelto')
   await writeNotes(loose, { 'suelta.md': '# Suelta\n' })
   await chooseOpen(application, join(loose, 'suelta.md'))
@@ -149,7 +149,7 @@ test('un índice existente en la raíz evita el diálogo, sin distinguir mayúsc
     expect((await fs.readdir(root)).sort()).toEqual([name, 'otra.md'].sort())
     expect(await fs.readFile(join(root, name), 'utf8')).toBe('# Original\n')
   }
-  // An index inside a subfolder does not count as the notebook index.
+  // El índice de una subcarpeta no cuenta como índice del cuaderno.
   const nested = testInfo.outputPath('anidado')
   await writeNotes(nested, { 'sub/index.md': '# Sub\n' })
   await chooseFromSidebar(application, page, nested)
@@ -172,7 +172,7 @@ test('un índice que aparece mientras el diálogo está abierto nunca se sobresc
   await dialog.getByRole('button', { name: 'Ahora no', exact: true }).click()
   await expect(dialog).toBeHidden()
 
-  // The main process also rejects a direct request once an index exists.
+  // También se rechaza la creación directa si ya existe un índice.
   const workspace = (await page.evaluate(() => window.workspace.current()))!
   await fs.rename(join(root, 'indice.md'), join(root, 'Index.md'))
   expect(await page.evaluate((id) => window.workspace.createIndex(id, 'ia'), workspace.id)).toEqual({ status: 'error', message: 'El cuaderno ya tiene un índice. No se sobrescribió.' })

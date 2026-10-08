@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
+import { markdownLinkDestinations } from '../../shared/markdown-links'
 
 const parser = unified().use(remarkParse).use(remarkGfm)
 export const parserVersion = 1
@@ -57,17 +58,6 @@ export function parseDocument(source: string, fallbackTitle: string): ParsedDocu
     }
   }
   append(source.length)
-  const definitions = new Map<string, string>()
-  const references: string[] = []
-  const urls: string[] = []
-  const pending = [tree]
-  while (pending.length) {
-    const node = pending.pop()!
-    if (node.type === 'link' && node.url) urls.push(node.url)
-    if (node.type === 'definition' && node.identifier && node.url && !definitions.has(node.identifier)) definitions.set(node.identifier, node.url)
-    if (node.type === 'linkReference' && node.identifier) references.push(node.identifier)
-    if (node.children) pending.push(...node.children.slice().reverse())
-  }
-  urls.push(...references.flatMap((id) => definitions.has(id) ? [definitions.get(id)!] : []))
+  const urls = markdownLinkDestinations(tree)
   return { title, chunks, urls: [...new Set(urls)].slice(0, 256), partial: urls.length > 256 }
 }
