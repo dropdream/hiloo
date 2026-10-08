@@ -8,7 +8,7 @@ import { markdownSignature } from '../src/shared/markdown'
 const editor = (page: Page) => page.getByRole('textbox', { name: 'Documento Markdown' })
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 
-// Readable, deterministic raster artwork exercises real image layout instead of a 1px placeholder.
+// Imágenes reproducibles con tamaño real para comprobar su disposición.
 async function artwork(page: Page, width: number, height: number, mime: 'image/png' | 'image/jpeg') {
   const encoded = await page.evaluate(({ width, height, mime }) => {
     const canvas = document.createElement('canvas')

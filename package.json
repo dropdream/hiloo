@@ -29,6 +29,8 @@
     "cytoscape": "3.34.3",
     "mermaid": "12.1.0",
     "pdfjs-dist": "6.4.299",
+    "postcss": "8.5.28",
+    "postcss-selector-parser": "7.1.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "remark-frontmatter": "5.0.0",

@@ -10,10 +10,10 @@ const options: { usage: NotebookIndexUsage; label: string; description: string }
 
 interface Props {
   name: string
-  /** Resolves with an error message, or null once the index was created and opened; the dialog then closes itself. */
+  // null confirma la apertura del índice; un texto indica el error.
   onChoose(usage: NotebookIndexUsage): Promise<string | null>
   onDismiss(): void
-  /** Focus target when the element that opened the dialog is no longer available. */
+  // Destino de foco si desaparece el control que abrió el diálogo.
   onFallbackFocus(): void
 }
 
@@ -31,7 +31,7 @@ export function NotebookIndexDialog({ name, onChoose, onDismiss, onFallbackFocus
 
   useEffect(() => {
     const element = dialog.current!
-    // Development StrictMode remounts the effect; keep the element focused before the first opening.
+    // StrictMode repite el efecto; conserva el foco anterior a la primera apertura.
     opener.current ??= document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
     element.showModal()
     first.current?.focus()
@@ -49,9 +49,13 @@ export function NotebookIndexDialog({ name, onChoose, onDismiss, onFallbackFocus
     setPending(usage)
     setError('')
     let failure: string | null
-    try { failure = await onChoose(usage) } catch { failure = 'No se pudo crear el índice. Vuelve a intentarlo.' }
+    try {
+      failure = await onChoose(usage)
+    } catch {
+      failure = 'No se pudo crear el índice. Vuelve a intentarlo.'
+    }
     if (failure === null) {
-      // The new index opens in the editor, which takes the focus.
+      // El editor recibe el foco al abrir el nuevo índice.
       restoreFocus.current = false
       onDismiss()
       return
@@ -61,19 +65,64 @@ export function NotebookIndexDialog({ name, onChoose, onDismiss, onFallbackFocus
     requestAnimationFrame(() => trigger.focus())
   }
 
-  return <dialog ref={dialog} className={styles.dialog} aria-labelledby={`${id}-title`} aria-describedby={`${id}-help`} aria-busy={pending ? true : undefined} onCancel={(event) => { event.preventDefault(); if (!pending) onDismiss() }}>
-    <h2 id={`${id}-title`}>¿Qué uso le darás al cuaderno?</h2>
-    <p id={`${id}-help`} className={styles.help}>hiloo creará <code>indice.md</code> en la raíz de <strong>{name}</strong> con un contenido adaptado al uso que elijas. No se modifica ninguna nota existente.</p>
-    <div className={styles.options} role="group" aria-label="Uso del cuaderno">
-      {options.map((option, index) => <button key={option.usage} ref={index === 0 ? first : undefined} type="button" className={styles.option} disabled={Boolean(pending)} aria-label={option.label} aria-describedby={`${id}-${option.usage}`} onClick={(event) => { void choose(option.usage, event.currentTarget) }}>
-        <span className={styles.label}>{pending === option.usage ? <><span className={styles.spinner} aria-hidden="true" />Creando índice…</> : option.label}</span>
-        <span id={`${id}-${option.usage}`} className={styles.description}>{option.description}</span>
-      </button>)}
-    </div>
-    <p role="status" className={styles.status}>{pending ? 'Creando índice…' : ''}</p>
-    {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-    <footer className={styles.footer}>
-      <button type="button" disabled={Boolean(pending)} onClick={onDismiss}>Ahora no</button>
-    </footer>
-  </dialog>
+  return (
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-help`}
+      aria-busy={pending ? true : undefined}
+      onCancel={(event) => {
+        event.preventDefault()
+        if (!pending) onDismiss()
+      }}
+    >
+      <h2 id={`${id}-title`}>¿Qué uso le darás al cuaderno?</h2>
+      <p id={`${id}-help`} className={styles.help}>
+        hiloo creará <code>indice.md</code> en la raíz de <strong>{name}</strong> con un contenido adaptado al uso que elijas. No se modifica ninguna nota
+        existente.
+      </p>
+      <div className={styles.options} role="group" aria-label="Uso del cuaderno">
+        {options.map((option, index) => (
+          <button
+            key={option.usage}
+            ref={index === 0 ? first : undefined}
+            type="button"
+            className={styles.option}
+            disabled={Boolean(pending)}
+            aria-label={option.label}
+            aria-describedby={`${id}-${option.usage}`}
+            onClick={(event) => void choose(option.usage, event.currentTarget)}
+          >
+            <span className={styles.label}>
+              {pending === option.usage ? (
+                <>
+                  <span className={styles.spinner} aria-hidden="true" />
+                  Creando índice…
+                </>
+              ) : (
+                option.label
+              )}
+            </span>
+            <span id={`${id}-${option.usage}`} className={styles.description}>
+              {option.description}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p role="status" className={styles.status}>
+        {pending ? 'Creando índice…' : ''}
+      </p>
+      {error ? (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
+      ) : null}
+      <footer className={styles.footer}>
+        <button type="button" disabled={Boolean(pending)} onClick={onDismiss}>
+          Ahora no
+        </button>
+      </footer>
+    </dialog>
+  )
 }

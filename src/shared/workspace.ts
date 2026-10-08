@@ -26,7 +26,7 @@ export interface WorkspaceSnapshot {
   links: WorkspaceLink[]
   currentNoteId: string | null
   warnings: string[]
-  /** The root contains indice.md, índice.md or index.md (any case). */
+  // Índice en la raíz, sin distinguir mayúsculas ni la tilde.
   hasIndex: boolean
 }
 

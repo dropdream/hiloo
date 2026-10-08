@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
 
-export const schemaVersion = 1
+export const schemaVersion = 2
 
 export function openDatabase(path: string): DatabaseSync {
   const db = new DatabaseSync(path, { timeout: 150, enableForeignKeyConstraints: true, allowExtension: false })
@@ -10,7 +10,7 @@ export function openDatabase(path: string): DatabaseSync {
     if (version > schemaVersion) throw new Error('El índice pertenece a una versión más reciente de hiloo.')
     if (version === 0) {
       db.exec('BEGIN IMMEDIATE')
-      // Another process may have completed the initial migration while we waited.
+      // Otro proceso puede haber creado el esquema mientras esperábamos.
       if (Number(db.prepare('PRAGMA user_version').get()!.user_version) === 0) db.exec(`
         CREATE TABLE notebooks (
           id TEXT PRIMARY KEY, root TEXT NOT NULL, root_key TEXT NOT NULL UNIQUE,
@@ -67,6 +67,15 @@ export function openDatabase(path: string): DatabaseSync {
           error TEXT
         ) STRICT;
         PRAGMA user_version = 1;`)
+      db.exec('COMMIT')
+    }
+    if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 2) {
+      db.exec('BEGIN IMMEDIATE')
+      if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 2) {
+        db.exec(`ALTER TABLE nodes ADD COLUMN links_partial INTEGER NOT NULL DEFAULT 0 CHECK(links_partial IN (0,1));
+          UPDATE nodes SET source_hash=NULL WHERE kind='note';
+          PRAGMA user_version = 2;`)
+      }
       db.exec('COMMIT')
     }
     return db

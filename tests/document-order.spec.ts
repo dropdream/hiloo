@@ -1,6 +1,35 @@
 import { promises as fs } from 'node:fs'
 import { dirname } from 'node:path'
-import { test, expect, chooseSave, chooseChanges } from './fixtures'
+import { test, expect, chooseOpen, chooseSave, chooseChanges } from './fixtures'
+import { markdownProblem } from '../src/shared/markdown'
+
+test('NUL rechaza la sincronización y el guardado sin sustituir el borrador', async ({ application, editorPage: page }, testInfo) => {
+  const path = testInfo.outputPath('sin-nul.md')
+  await fs.mkdir(dirname(path), { recursive: true })
+  await page.getByRole('button', { name: 'Markdown', exact: true }).click()
+  const source = page.getByRole('textbox', { name: 'Código Markdown', exact: true })
+  await source.fill('Borrador conservado\n')
+  await chooseSave(application, path)
+  const rejected = await page.evaluate(async () => {
+    const current = await window.documents.current()
+    const update = await window.documents.update(current.id, 'texto\0final')
+    const save = await window.documents.save()
+    return { update, save }
+  })
+  expect(rejected.update.status).toBe('error')
+  expect(rejected.save.status).toBe('error')
+  expect(markdownProblem('texto\0final')).toContain('NUL')
+  await expect(source).toHaveValue('Borrador conservado\n')
+  await expect(page.getByRole('alert')).toContainText('NUL')
+  await expect(fs.stat(path)).rejects.toMatchObject({ code: 'ENOENT' })
+  await source.fill('Edición corregida\n')
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Guardado')
+  expect((await fs.readFile(path)).includes(0)).toBe(false)
+  await chooseOpen(application, path)
+  await page.getByRole('button', { name: 'Abrir', exact: true }).click()
+  await expect(source).toHaveValue('Edición corregida\n')
+})
 
 test('actualización recibida durante escritura permanece pendiente y el segundo guardado la persiste', async ({ application, editorPage: page }, testInfo) => {
   const path = testInfo.outputPath('concurrente.md')
@@ -61,7 +90,7 @@ for (const close of [false, true]) {
     if (close) await (await application.browserWindow(page)).evaluate(win => win.close())
     else await page.getByRole('button', { name: 'Guardar', exact: true }).click()
     await expect.poll(() => application.evaluate(() => (globalThis as typeof globalThis & { saveGate?: { reached: boolean } }).saveGate?.reached)).toBe(true)
-    // Evento atrasado inyectado para comprobar la protección sin depender del bloqueo visual.
+    // Inyecta una edición atrasada sin depender del bloqueo visual.
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('document:busy', false))
     await expect(editor).toHaveAttribute('contenteditable', 'true')
     await editor.fill('Versión posterior')

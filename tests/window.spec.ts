@@ -28,7 +28,15 @@ test('superficie de edición, aislamiento y ciclo de ventana por API', async ({ 
     await window.evaluate((win) => win.unmaximize())
     await expect.poll(() => window.evaluate((win) => win.isMaximized())).toBe(false)
     await window.evaluate((win) => win.setBounds({ x: 100, y: 100, width: 800, height: 500 }))
-    await expect.poll(() => window.evaluate((win) => win.getBounds())).toEqual({ x: 100, y: 100, width: 800, height: 500 })
+    await expect.poll(() => window.evaluate((win) => {
+      const { x, y } = win.getBounds()
+      return { x, y }
+    })).toEqual({ x: 100, y: 100 })
+    // Windows puede redondear el tamaño en 1 DIP con escala fraccionaria.
+    await expect.poll(() => window.evaluate((win) => {
+      const { width, height } = win.getBounds()
+      return Math.max(Math.abs(width - 800), Math.abs(height - 500))
+    })).toBeLessThanOrEqual(1)
     await window.evaluate((win) => win.setSize(100, 100))
     const minimum = await window.evaluate((win) => win.getSize())
     expect(minimum[0]).toBeGreaterThanOrEqual(420)

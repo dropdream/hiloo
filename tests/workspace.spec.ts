@@ -38,7 +38,7 @@ test('cuaderno explora subcarpetas, filtra por ruta y abre notas Markdown', asyn
   await page.getByRole('button', { name: 'Mostrar cuaderno', exact: true }).click()
   await chooseOpen(application, root)
   await page.getByRole('button', { name: 'Abrir cuaderno', exact: true }).click()
-  // A notebook without an index offers to create one; this flow declines it.
+  // Se descarta la oferta de crear el índice.
   await page.getByRole('dialog', { name: '¿Qué uso le darás al cuaderno?' }).getByRole('button', { name: 'Ahora no', exact: true }).click()
   const sidebar = page.getByRole('complementary', { name: 'Notas del cuaderno' })
   await expect(sidebar.getByRole('button', { name: 'Abrir nota:', exact: false })).toHaveCount(2)
@@ -470,7 +470,7 @@ test('nodo del grafo muestra información al pasar el puntero y su clic abre sol
   const canvas = brain.getByTestId('brain-canvas')
   await expect(canvas.locator('canvas').first()).toBeVisible()
   const nodePoint = () => canvas.evaluate((element, id) => {
-    // The fitted bounds include the label, so the node is not necessarily at the canvas center.
+    // El ajuste incluye la etiqueta; el nodo puede quedar fuera del centro.
     const graph = (element as HTMLElement & { _cyreg: { cy: Core } })._cyreg.cy
     const position = graph.getElementById(id).renderedPosition()
     const bounds = element.getBoundingClientRect()

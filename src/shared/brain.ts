@@ -1,4 +1,4 @@
-/** Markdown is authoritative for content; catalogue identities and manual links are durable. */
+// Markdown conserva el contenido; el catálogo guarda identidades y relaciones manuales.
 export type BrainNodeKind = 'notebook' | 'folder' | 'note'
 export type BrainNotebookStatus = 'pending' | 'ready' | 'partial' | 'unavailable'
 
@@ -64,7 +64,7 @@ export interface BrainReadItem {
   heading: string
   sourceHash: string
   content?: string
-  /** UTF-16 code-unit offsets in the decoded source without its UTF-8 BOM; not byte offsets. */
+  // Posiciones UTF-16 del texto decodificado, sin BOM.
   startOffset?: number
   endOffset?: number
   nextChunkId?: string | null

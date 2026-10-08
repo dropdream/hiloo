@@ -60,4 +60,4 @@ h1 { font-size: 22pt; text-align: center; }
 p { text-align: justify; }
 ```
 
-Estas reglas prevalecen sobre las predeterminadas de impresión. El tamaño de papel y los márgenes de 15 mm siguen definiéndose en **Formato de página**; `@page` no se admite. El CSS tiene un límite de 64 KB y se valida en el proceso principal mediante el puente `settings`. La política de contenido bloquea `@import` y fuentes remotas.
+Estas reglas prevalecen sobre las predeterminadas de impresión. El tamaño de papel y los márgenes de 15 mm siguen definiéndose en **Formato de página**; `@page` no se admite. El CSS tiene un límite de 64 KB y se analiza en el proceso principal mediante el puente `settings`. Se admiten declaraciones, selectores relativos al documento y bloques `@media`, `@supports` y `@container`. Se rechazan CSS mal formado, selectores con `&`, selectores que comienzan con combinadores de hermanos y otras reglas globales, como `@import`, `@font-face` o `@keyframes`. La política de contenido también bloquea fuentes remotas.

@@ -65,6 +65,60 @@ test('un scan parcial conserva notas ausentes y las lecturas verifican hash y l�
   } finally { index.close() }
 })
 
+test('los enlaces truncados mantienen el índice parcial tras sincronizar y reiniciar', async ({}, testInfo) => {
+  const root = testInfo.outputPath('cuaderno')
+  const database = testInfo.outputPath('brain.sqlite')
+  await fs.mkdir(root, { recursive: true })
+  const path = join(root, 'enlaces.md')
+  await fs.writeFile(path, Array.from({ length: 257 }, (_, n) => `[Nota ${n}](nota-${n}.md)`).join('\n'))
+  const first = new BrainIndex(database)
+  let notebookId: string
+  try {
+    notebookId = (await first.registerNotebook(root)).id
+    const initial = await first.sync(notebookId)
+    expect(initial.status).toBe('partial')
+    expect(initial.warnings).toContain('Se omitieron enlaces por superar 256 destinos en una nota.')
+    const repeated = await first.sync(notebookId)
+    expect(repeated.status).toBe('partial')
+    expect(repeated.changedFiles).toBe(0)
+    expect(repeated.warnings).toEqual(initial.warnings)
+  } finally { first.close() }
+  const restarted = new BrainIndex(database)
+  try {
+    expect((await restarted.sync(notebookId!)).status).toBe('partial')
+    expect((await restarted.catalog()).items[0].status).toBe('partial')
+    await fs.writeFile(path, '[Una nota](nota-0.md)\n')
+    expect((await restarted.sync(notebookId!)).status).toBe('ready')
+    expect((await restarted.sync(notebookId!)).warnings).toEqual([])
+  } finally { restarted.close() }
+})
+
+test('migrar un índice anterior conserva identidades y recalcula el estado parcial', async ({}, testInfo) => {
+  const root = testInfo.outputPath('cuaderno')
+  const database = testInfo.outputPath('brain.sqlite')
+  await fs.mkdir(root, { recursive: true })
+  await fs.writeFile(join(root, 'enlaces.md'), '# Enlaces\n\n' + Array.from({ length: 257 }, (_, n) => `[Nota ${n}](nota-${n}.md)`).join('\n'))
+  const first = new BrainIndex(database)
+  const notebook = await first.registerNotebook(root)
+  await first.sync(notebook.id)
+  const hit = (await first.search({ query: 'enlaces' })).items[0]
+  const link = await first.link({ sourceId: notebook.id, targetId: hit.nodeId })
+  first.close()
+  await new Promise<void>((done) => setImmediate(done))
+  const old = new DatabaseSync(database)
+  try {
+    old.exec('ALTER TABLE nodes DROP COLUMN links_partial; PRAGMA user_version=1;')
+  } finally { old.close() }
+  const migrated = new BrainIndex(database)
+  try {
+    expect((await migrated.status()).schemaVersion).toBe(2)
+    expect((await migrated.catalog()).items[0].id).toBe(notebook.id)
+    expect((await migrated.sync(notebook.id)).status).toBe('partial')
+    expect((await migrated.search({ query: 'enlaces' })).items[0].nodeId).toBe(hit.nodeId)
+    expect((await migrated.related({ nodeId: notebook.id, type: 'manual' })).items[0].linkId).toBe(link.id)
+  } finally { migrated.close() }
+})
+
 test('jobs se reclaman atómicamente y se retoman tras un dueño desaparecido', async ({}, testInfo) => {
   const root = testInfo.outputPath('cuaderno')
   const database = testInfo.outputPath('brain.sqlite')

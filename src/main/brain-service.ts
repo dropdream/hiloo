@@ -32,7 +32,8 @@ function catalogRequest(value: unknown): BrainCatalogRequest {
 
 function searchRequest(value: unknown): BrainSearchRequest {
   const request = object(value, ['query', 'notebookId', 'ancestorId', 'limit', 'maxChars'])
-  if (typeof request.query !== 'string' || !request.query.trim() || request.query.length > 512) throw new Error('La búsqueda debe contener entre 1 y 512 caracteres.')
+  if (typeof request.query !== 'string' || !request.query.trim() || request.query.length > 512)
+    throw new Error('La búsqueda debe contener entre 1 y 512 caracteres.')
   if (request.notebookId !== undefined) id(request.notebookId)
   if (request.ancestorId !== undefined) id(request.ancestorId)
   integer(request.limit, 1, 20)
@@ -67,23 +68,25 @@ function linkRequest(value: unknown): BrainLinkRequest {
   const request = object(value, ['sourceId', 'targetId', 'label'])
   id(request.sourceId)
   id(request.targetId)
-  if (request.label !== undefined && (typeof request.label !== 'string' || request.label.length > 200 || /[\u0000-\u001f]/.test(request.label))) throw new Error('La etiqueta del enlace no es válida.')
+  if (request.label !== undefined && (typeof request.label !== 'string' || request.label.length > 200 || /[\u0000-\u001f]/.test(request.label)))
+    throw new Error('La etiqueta del enlace no es válida.')
   return request as unknown as BrainLinkRequest
 }
 
-/** Only explicit notebook selection can register roots; renderer requests accept IDs, never paths or SQL. */
+// Solo la selección explícita registra raíces; la vista envía IDs.
 export function attachBrain(window: BrowserWindow, trustedUrl: string) {
   let index: BrainIndex | null = null
   let closed = false
   const channels: string[] = []
   const getIndex = () => {
     if (closed) throw new Error('Cerebro ya está cerrado.')
-    return index ??= new BrainIndex(join(app.getPath('userData'), 'brain.sqlite'))
+    return (index ??= new BrainIndex(join(app.getPath('userData'), 'brain.sqlite')))
   }
   function handle(channel: string, callback: (value: unknown) => unknown): void {
     channels.push(channel)
     ipcMain.handle(channel, (event, value: unknown) => {
-      if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || event.senderFrame.url !== trustedUrl) throw new Error('Origen de solicitud no permitido.')
+      if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || event.senderFrame.url !== trustedUrl)
+        throw new Error('Origen de solicitud no permitido.')
       return callback(value)
     })
   }

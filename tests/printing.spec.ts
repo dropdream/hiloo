@@ -18,7 +18,7 @@ interface PrintState {
   error?: string
 }
 
-// Never allow these tests to open a printer dialog or submit a physical print job.
+// Estas pruebas no deben abrir la impresora ni enviar trabajos reales.
 async function interceptPrint(application: ElectronApplication, pdf = false) {
   await application.evaluate(({ BrowserWindow }, pdf) => {
     const state: PrintState = { calls: [], success: true, reason: '' }

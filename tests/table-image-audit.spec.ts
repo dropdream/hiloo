@@ -125,7 +125,14 @@ test('auditor: alineación completa persiste y última columna se elimina con hi
   const path = info.outputPath('alignment.md')
   await open(application, page, path, '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n')
   for (const [column, name, value] of [[0, 'Alinear a la izquierda', 'left'], [1, 'Centrar', 'center'], [2, 'Alinear a la derecha', 'right']] as const) {
-    await editor(page).locator('td').nth(column).click()
+    const cell = editor(page).locator('td').nth(column)
+    // Pulsa el texto para evitar el espacio vacío de la celda.
+    await cell.locator('p').click({ position: { x: 4, y: 8 } })
+    // Espera la selección de la celda antes de abrir el diálogo.
+    await expect.poll(() => cell.evaluate((element) => {
+      const selection = window.getSelection()
+      return Boolean(selection?.anchorNode && selection.focusNode && element.contains(selection.anchorNode) && element.contains(selection.focusNode))
+    })).toBe(true)
     await tableAction(page, name)
     await expect(editor(page).locator('th').nth(column)).toHaveCSS('text-align', value)
     await expect(editor(page).locator('td').nth(column)).toHaveCSS('text-align', value)
