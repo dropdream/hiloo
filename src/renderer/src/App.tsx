@@ -88,6 +88,7 @@ export function App() {
   const {
     document,
     busy,
+    operating,
     operation,
     ready,
     error,
@@ -151,7 +152,7 @@ export function App() {
 
   useEffect(() => {
     // Enfoca después de que React retire el fondo inerte del panel.
-    if (!focusDocument || busy || brainOpen || indexPrompt || (sidebarOpen && narrow) || (mode === 'visual' && !ready))
+    if (!focusDocument || busy || operating || brainOpen || indexPrompt || (sidebarOpen && narrow) || (mode === 'visual' && !ready))
       return
     const active = globalThis.document.activeElement
     const movedOn =
@@ -164,7 +165,7 @@ export function App() {
       else controller.current?.focus()
     }
     setFocusDocument(false)
-  }, [focusDocument, busy, brainOpen, indexPrompt, sidebarOpen, narrow, mode, ready, document?.id])
+  }, [focusDocument, busy, operating, brainOpen, indexPrompt, sidebarOpen, narrow, mode, ready, document?.id])
 
   useEffect(() => {
     let active = true
@@ -259,9 +260,9 @@ export function App() {
   }, [sidebarOpen, workspace?.id])
 
   useEffect(() => {
-    // Espera al final de la operación; si aparece el diálogo del índice, él decide el foco.
+    // Espera al final de la operación del renderer; si aparece el diálogo del índice, él decide el foco.
     if (indexPrompt) pendingPanelFocus.current = false
-    if (!pendingPanelFocus.current || busy) return
+    if (!pendingPanelFocus.current || busy || operating) return
     const frame = requestAnimationFrame(() => {
       pendingPanelFocus.current = false
       const panel = sidebarPanel.current
@@ -271,7 +272,7 @@ export function App() {
       target?.focus()
     })
     return () => cancelAnimationFrame(frame)
-  }, [sidebarOpen, workspace?.id, busy, indexPrompt])
+  }, [sidebarOpen, workspace?.id, busy, operating, indexPrompt])
 
   useEffect(() => {
     if (!sidebarOpen || !narrow) return
