@@ -1,5 +1,7 @@
 # Consulta progresiva
 
+Con el servidor MCP de hiloo, cada comando de esta guía es una herramienta del mismo nombre y sus opciones son parámetros: `--max-chars` es `maxChars`, `--expected-hash <id>=<hash>` es `expectedHashes: { "<id>": "<hash>" }` y el id posicional es `node`, `ids` o `notebook`. `outline <note-id>` (también en la CLI) lista las secciones de una nota con sus ids de fragmento para leer solo la que necesitas. `register`, `language`, `link`, `unlink` y `status` solo existen en la CLI.
+
 Todos los ejemplos usan `node "<hiloo-root>/scripts/brain.cjs"`; añade `--db "<base>"` a cada comando si elegiste una base explícita. También funciona `npm run --silent brain -- ...` desde el repositorio. Este acceso requiere el repositorio y su build; no presupone una CLI independiente incluida en el instalador. Lee `--help` para diagnosticar una versión distinta, no como primer paso rutinario de cada consulta.
 
 ## Descubrir y buscar
@@ -22,7 +24,7 @@ Las coincidencias aportan `chunkId`, `nodeId`, ruta relativa, encabezado, extrac
 
 Los presupuestos cuentan caracteres del JSON, incluidos metadatos; no son una cuota exacta de tokens. Como inicio: búsqueda de seis resultados con 6000 caracteres y lectura con 12000. Aumenta solo si la tarea lo necesita. `truncated` significa respuesta incompleta, no ausencia de más información.
 
-En `catalog` y `related`, continúa con el `nextOffset` devuelto y `--offset` cuando necesites la siguiente página; no lo calcules a partir del límite solicitado. Si el presupuesto no permite devolver ni un elemento, amplíalo antes de volver a intentar. La búsqueda no ofrece cursor: refina proyecto/subárbol/términos o aumenta su límite hasta veinte. La lectura devuelve fragmentos enteros; si omite alguno por presupuesto, solicita menos IDs o aumenta el presupuesto. `nextChunkId` permite continuar una nota sin leerla entera de entrada.
+En `catalog` y `related`, continúa con el `nextOffset` devuelto y `--offset` cuando necesites la siguiente página; no lo calcules a partir del límite solicitado. Si el presupuesto no permite devolver ni un elemento, amplíalo antes de volver a intentar. La búsqueda también devuelve `nextOffset` (hasta 200 posiciones), pero suele rendir más refinar proyecto, subárbol o términos. La lectura devuelve fragmentos enteros; si omite alguno por presupuesto, solicita menos IDs o aumenta el presupuesto. `nextChunkId` permite continuar una nota sin leerla entera de entrada.
 
 ## Navegar relaciones y citar
 
