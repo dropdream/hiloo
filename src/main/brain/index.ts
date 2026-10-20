@@ -582,7 +582,8 @@ export class BrainIndex {
     const engine = this.engine.search({
       query: request.query,
       languages: searchLanguages(request.query, this.notebookLanguages(scoped)),
-      scope: { where, args }
+      scope: { where, args },
+      perNode: 2
     })
     if (engine.terms) result.terms = engine.terms
     if (!engine.rowids.length) {

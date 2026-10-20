@@ -72,3 +72,30 @@ test('los metadatos de una consulta larga respetan el presupuesto de caracteres'
     expect(short).toMatchObject({ truncated: false, terms: ['caja'], missingTerms: [] })
   } finally { index.close() }
 })
+
+test('una nota con cientos de fragmentos coincidentes no oculta las demás ni rompe la paginación', async ({}, testInfo) => {
+  const root = testInfo.outputPath('cuaderno-grande')
+  await fs.mkdir(root, { recursive: true })
+  const sections = Array.from({ length: 300 }, (_, n) => `## Evidencia ${n}\n\nEvidencia evidencia ${n}.\n`).join('\n')
+  await fs.writeFile(join(root, 'Grande.md'), `# Evidencia\n\n${sections}`)
+  const filler = 'Texto de relleno sobre otros asuntos del proyecto. '.repeat(30)
+  for (let n = 0; n < 10; n++) await fs.writeFile(join(root, `Nota ${n}.md`), `# Nota ${n}\n\n${filler}Una evidencia.\n`)
+  const index = new BrainIndex(testInfo.outputPath('brain.sqlite'))
+  try {
+    const { id } = await index.registerNotebook(root)
+    await index.sync(id)
+    const seen: string[] = []
+    let offset: number | null = 0
+    while (offset !== null) {
+      const page = await index.search({ query: 'evidencia', notebookId: id, limit: 5, offset, maxChars: 16000 })
+      expect(page.items.length).toBeGreaterThan(0)
+      seen.push(...page.items.map((item) => item.chunkId))
+      offset = page.nextOffset
+    }
+    expect(new Set(seen).size).toBe(seen.length)
+    expect(seen).toHaveLength(12)
+    const first = await index.search({ query: 'evidencia', notebookId: id, limit: 20, maxChars: 16000 })
+    expect(first.items.slice(0, 2).every((item) => item.relativePath === 'Grande.md')).toBe(true)
+    expect(new Set(first.items.map((item) => item.relativePath)).size).toBe(11)
+  } finally { index.close() }
+})
