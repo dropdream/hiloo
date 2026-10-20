@@ -2,6 +2,8 @@
 export type BrainNodeKind = 'notebook' | 'folder' | 'note'
 export type BrainNotebookStatus = 'pending' | 'ready' | 'partial' | 'unavailable'
 
+export type BrainLanguage = 'es' | 'en' | 'pt' | 'fr' | 'de' | 'it'
+
 export interface BrainNotebook {
   id: string
   name: string
@@ -10,6 +12,9 @@ export interface BrainNotebook {
   status: BrainNotebookStatus
   nodeCount: number
   chunkCount: number
+  // 'auto' usa el idioma detectado al sincronizar.
+  language: BrainLanguage | 'auto'
+  detectedLanguage: BrainLanguage | null
 }
 
 export interface BrainCatalogRequest {
@@ -42,12 +47,17 @@ export interface BrainSearchHit {
   excerpt: string
   sourceHash: string
   indexedAt: string
+  // Términos de la consulta presentes en el fragmento; solo en motores léxicos.
+  matchedTerms?: string[]
 }
 
 export interface BrainSearchResult {
   items: BrainSearchHit[]
   truncated: boolean
   indexedAt: string | null
+  // Palabras clave buscadas y las que no aparecen en ninguna nota del alcance.
+  terms?: string[]
+  missingTerms?: string[]
 }
 
 export interface BrainReadRequest {
