@@ -77,6 +77,8 @@ test('el MCP expone solo herramientas de lectura y responde al flujo catálogo, 
     const read = await call<BrainReadResult>(client, 'read', { ids: [hit.chunkId], expectedHashes: { [hit.chunkId]: hit.sourceHash } }, 12000)
     expect(read.data.items[0].status).toBe('ok')
     expect(read.data.items[0].content).toContain('goteo con temporizador')
+    const upper = await call<BrainReadResult>(client, 'read', { ids: [hit.chunkId], expectedHashes: { [hit.chunkId]: hit.sourceHash.toUpperCase() } })
+    expect(upper.data.items[0].status).toBe('ok')
 
     const outline = await call<{ items: { chunkId: string; heading: string }[] }>(client, 'outline', { node: notebook.id }, 6000)
     expect(outline.isError).toBe(true)

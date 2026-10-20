@@ -721,7 +721,8 @@ export class BrainIndex {
           checked.set(nodeId, status)
         }
         const expected = request.expectedHashes?.[chunkId]
-        if (expected !== undefined && expected !== row.source_hash) status = 'stale'
+        // El hash se guarda en minúsculas; la entrada admite ambas.
+        if (expected !== undefined && expected.toLowerCase() !== row.source_hash) status = 'stale'
         item = {
           chunkId,
           nodeId,
