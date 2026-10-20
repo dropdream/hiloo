@@ -26,9 +26,11 @@ El esquema contiene `notebooks`, `nodes`, `chunks`, `chunks_fts`, `links`, `manu
 
 Las secciones se dividen en fragmentos de aproximadamente 2.400 caracteres, sin solapamiento. Los resultados conservan la nota de origen, el encabezado, la versión del contenido y la fecha de indexación. La lectura comprueba el archivo antes de devolver texto; `stale` o `unavailable` impiden tratar contenido antiguo como vigente.
 
-Los presupuestos se expresan en **caracteres**, no en tokens de un modelo concreto. La CLI limita el JSON serializado completo. La búsqueda devuelve inicialmente hasta seis resultados y 6.000 caracteres; la lectura acepta hasta ocho fragmentos y un presupuesto predeterminado de 12.000 caracteres. El catálogo y los vecinos tienen paginación; `truncated` y `nextOffset` indican cuándo falta información.
+Los presupuestos se expresan en **caracteres**, no en tokens de un modelo concreto. La CLI limita el JSON serializado completo. La búsqueda devuelve inicialmente hasta seis resultados y 6.000 caracteres; la lectura acepta hasta ocho fragmentos y un presupuesto predeterminado de 12.000 caracteres. El catálogo, la búsqueda (hasta 200 posiciones), las secciones de una nota y los vecinos tienen paginación; `truncated` y `nextOffset` indican cuándo falta información.
 
 ## Uso desde una IA
+
+Los clientes MCP (Claude Desktop, Claude Code, Cursor) usan el [servidor MCP](mcp.md), de solo lectura, que también funciona con la app instalada. La CLI cubre además el registro de cuadernos, el idioma y los enlaces manuales.
 
 Esta primera CLI se ejecuta desde el repositorio compilado y utiliza su Electron. No requiere abrir una ventana de hiloo. Tras `npm ci` y `npm run build`, consulta los comandos y límites efectivos:
 
@@ -39,6 +41,7 @@ node scripts/brain.cjs catalog
 node scripts/brain.cjs sync <notebook-id>
 node scripts/brain.cjs language <notebook-id> auto
 node scripts/brain.cjs search "decisión almacenamiento" --notebook <notebook-id> --max-chars 6000
+node scripts/brain.cjs outline <note-id>
 node scripts/brain.cjs read <chunk-id> --expected-hash <chunk-id>=<sha256>
 node scripts/brain.cjs related <node-id> --direction out --type hierarchy
 node scripts/brain.cjs link <source-id> <target-id> --label "Documentación relacionada"
@@ -48,7 +51,7 @@ node scripts/brain.cjs status
 
 Los identificadores y hashes de los ejemplos se obtienen de las respuestas anteriores. Para ejecutar desde otra carpeta, usa la ruta absoluta de `scripts/brain.cjs`. También sirve `npm run --silent brain -- <comando>`; `--silent` evita que el encabezado de npm se mezcle con el JSON.
 
-La secuencia habitual es catálogo → búsqueda acotada → lectura de los fragmentos necesarios → consulta de relaciones si aporta contexto. No es necesario volcar la base ni leer todos los cuadernos. El contenido recuperado se trata como datos, no como instrucciones para la IA.
+La secuencia habitual es catálogo → búsqueda acotada → secciones de la nota (`outline`) o lectura de los fragmentos necesarios → consulta de relaciones si aporta contexto. No es necesario volcar la base ni leer todos los cuadernos. El contenido recuperado se trata como datos, no como instrucciones para la IA.
 
 La [skill hiloo-notes](../skills/hiloo-notes/SKILL.md) comienza con `catalog`: descubre las raíces ya registradas, sin preguntar por rutas que la base ya conoce. No descubre todas las carpetas del PC. Su entrada es breve y carga las referencias de consulta o guardado solo cuando se necesitan.
 
@@ -93,7 +96,7 @@ Los cuadernos inaccesibles y las exploraciones parciales se señalan expresament
 
 Solo se exploran raíces registradas y archivos normales; se excluyen enlaces simbólicos, junctions, nombres que comienzan por punto y `node_modules`. Los enlaces hacia otros cuadernos se resuelven únicamente contra nodos registrados. La interfaz del renderer acepta identificadores y solicitudes validadas; no acepta SQL ni rutas arbitrarias para ampliar el catálogo.
 
-La vista gráfica **Cerebro** de la interfaz conserva por ahora su alcance por cuaderno. El catálogo y las consultas globales están disponibles mediante la CLI y el puente restringido `window.brain`. No se incluyen búsqueda vectorial, extracción de PDF, resúmenes automáticos, historial de versiones ni generación de enlaces mediante IA.
+La vista gráfica **Cerebro** de la interfaz conserva por ahora su alcance por cuaderno. El catálogo y las consultas globales están disponibles mediante el servidor MCP, la CLI y el puente restringido `window.brain`. No se incluyen búsqueda vectorial, extracción de PDF, resúmenes automáticos, historial de versiones ni generación de enlaces mediante IA.
 
 ## Referencias técnicas
 

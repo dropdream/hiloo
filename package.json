@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@milkdown/kit": "7.22.2",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@orama/stemmers": "3.1.18",
     "@radix-ui/react-context-menu": "2.4.1",
     "@radix-ui/react-select": "2.3.7",
@@ -38,7 +39,8 @@
     "remark-frontmatter": "5.0.0",
     "remark-gfm": "4.0.1",
     "remark-parse": "11.0.0",
-    "unified": "11.0.5"
+    "unified": "11.0.5",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

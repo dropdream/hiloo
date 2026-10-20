@@ -34,6 +34,8 @@ export interface BrainSearchRequest {
   notebookId?: string
   ancestorId?: string
   limit?: number
+  // Posición en la lista ordenada; se continúa con nextOffset.
+  offset?: number
   maxChars?: number
 }
 
@@ -54,10 +56,35 @@ export interface BrainSearchHit {
 export interface BrainSearchResult {
   items: BrainSearchHit[]
   truncated: boolean
+  nextOffset: number | null
   indexedAt: string | null
   // Palabras clave buscadas y las que no aparecen en ninguna nota del alcance.
   terms?: string[]
   missingTerms?: string[]
+}
+
+export interface BrainOutlineRequest {
+  nodeId: string
+  limit?: number
+  offset?: number
+  maxChars?: number
+}
+
+export interface BrainOutlineItem {
+  chunkId: string
+  heading: string
+  chars: number
+}
+
+export interface BrainOutlineResult {
+  nodeId: string
+  title: string
+  relativePath: string
+  sourceHash: string
+  indexedAt: string | null
+  items: BrainOutlineItem[]
+  truncated: boolean
+  nextOffset: number | null
 }
 
 export interface BrainReadRequest {

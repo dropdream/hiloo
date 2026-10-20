@@ -1,6 +1,6 @@
 # hiloo — Definición inicial del producto y stack
 
-Fecha: 2026-10-05. Estado: entregas 1 y 2, navegación básica de cuadernos, recientes persistentes, pestañas de documentos restauradas entre sesiones, Cerebro, índice global SQLite para IA y creación opcional de `indice.md` al elegir un cuaderno implementados localmente; mantenimiento automático de índices Markdown, historial persistente y exportación pendientes.
+Fecha: 2026-10-20. Estado: entregas 1 y 2, navegación básica de cuadernos, recientes persistentes, pestañas de documentos restauradas entre sesiones, Cerebro, índice global SQLite para IA con servidor MCP de solo lectura y creación opcional de `indice.md` al elegir un cuaderno implementados localmente; mantenimiento automático de índices Markdown, historial persistente y exportación pendientes.
 
 ## Identidad y objetivo
 
@@ -22,7 +22,7 @@ La aplicación no integra un modelo de IA. El skill independiente [hiloo-notes](
 | Desarrollo y compilación | electron-vite | Entorno de desarrollo y compilación de Electron con React y TypeScript. |
 | Edición visual | Milkdown CommonMark, basado en ProseMirror | Edición visual y lectura/escritura de formatos admitidos; integración directa sin Crepe. |
 | Documentos | Sistema de archivos: carpetas y `.md` | Almacenamiento principal, accesible por humanos y herramientas externas. |
-| Índice global para IA | SQLite integrado en Electron + FTS5 | Catálogo, fragmentos, búsqueda y enlaces manuales; CLI y puente restringido. |
+| Índice global para IA | SQLite integrado en Electron + FTS5 | Catálogo, fragmentos, búsqueda y enlaces manuales; servidor MCP de solo lectura, CLI y puente restringido. |
 | Historial persistente | SQLite | Base propuesta para versiones anteriores y registro de operaciones; no reemplaza los documentos Markdown. |
 | Preferencias | JSON local | Ajustes de la aplicación y últimos cuadernos. |
 | Exportación | HTML + CSS personalizado | Documentos compartibles, estilos corporativos y preparación para impresión. |
@@ -193,4 +193,4 @@ Siguen pendientes los filtros por sección, la vista local de vecinos, el manten
 
 ## Índice global para IA — implementación inicial
 
-El catálogo SQLite conserva cuadernos registrados, nodos de carpetas/notas y relaciones manuales entre ellos. Los fragmentos, FTS5 y enlaces Markdown se actualizan desde disco. La CLI permite descubrir cuadernos primero, buscar en lenguaje natural o por palabras clave (OR con BM25, palabras vacías y raíces por idioma) con presupuestos de caracteres y leer solo fragmentos verificados. La base contiene información durable: reindexar no equivale a borrarla. La vista gráfica actual sigue limitada al cuaderno activo. Detalles, límites y comandos: [Cerebro SQLite](docs/cerebro-sqlite.md). El skill externo [hiloo-notes](skills/hiloo-notes/SKILL.md) describe consulta y guardado con las capacidades implementadas.
+El catálogo SQLite conserva cuadernos registrados, nodos de carpetas/notas y relaciones manuales entre ellos. Los fragmentos, FTS5 y enlaces Markdown se actualizan desde disco. El [servidor MCP](docs/mcp.md) de solo lectura (`@modelcontextprotocol/sdk`, stdio) expone catálogo, búsqueda, secciones, lectura, vecinos y `sync` a clientes como Claude Desktop, Claude Code y Cursor, desde la app instalada o el repositorio. La CLI permite descubrir cuadernos primero, buscar en lenguaje natural o por palabras clave (OR con BM25, palabras vacías y raíces por idioma) con presupuestos de caracteres y leer solo fragmentos verificados. La base contiene información durable: reindexar no equivale a borrarla. La vista gráfica actual sigue limitada al cuaderno activo. Detalles, límites y comandos: [Cerebro SQLite](docs/cerebro-sqlite.md). El skill externo [hiloo-notes](skills/hiloo-notes/SKILL.md) describe consulta y guardado con las capacidades implementadas.

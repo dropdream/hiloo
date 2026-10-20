@@ -6,7 +6,7 @@ A Markdown note editor for Windows. You write with formatting, like in a word pr
 
 - **Local files.** Your notes are `.md` files in a folder on your PC. No account, no cloud, and any other editor can open them.
 - **Connected notebooks.** A folder is a notebook. Link notes to each other and see those links as a graph.
-- **Ready for AI.** An external AI tool, such as Claude or Codex, can search and read your notes through a local CLI and the `hiloo-notes` skill.
+- **Ready for AI.** An external AI tool, such as Claude, Cursor or Codex, can search and read your notes through an MCP server, a local CLI and the `hiloo-notes` skill.
 
 The interface is in Spanish.
 
@@ -32,7 +32,11 @@ The interface is in Spanish.
 
 ## hiloo + AI
 
-hiloo has no built-in AI. When you open a notebook, hiloo adds it to a local SQLite index (`%APPDATA%\hiloo\brain.sqlite`) with full-text search. Nothing leaves your PC. An external AI queries that index with `scripts/brain.cjs` (after `npm ci` and `npm run build`):
+hiloo has no built-in AI. When you open a notebook, hiloo adds it to a local SQLite index (`%APPDATA%\hiloo\brain.sqlite`) with full-text search. Nothing leaves your PC.
+
+Claude Desktop, Claude Code, Cursor and other MCP clients query that index through hiloo's read-only MCP server: catalog, search, outline, read and links. Copy-paste setup for the installed app and for development, in Spanish: [docs/mcp.md](docs/mcp.md).
+
+An AI that runs commands can also use `scripts/brain.cjs` (after `npm ci` and `npm run build`), which can also register notebooks and create manual links:
 
 ```powershell
 node scripts/brain.cjs catalog
@@ -40,7 +44,7 @@ node scripts/brain.cjs search "riego goteo"
 node scripts/brain.cjs read <chunk-id>
 ```
 
-The [`hiloo-notes`](skills/hiloo-notes/SKILL.md) skill teaches an AI tool to use the CLI. Details, in Spanish: [docs/cerebro-sqlite.md](docs/cerebro-sqlite.md).
+The [`hiloo-notes`](skills/hiloo-notes/SKILL.md) skill teaches an AI tool to use the MCP server or the CLI. Details, in Spanish: [docs/cerebro-sqlite.md](docs/cerebro-sqlite.md).
 
 ## Try it
 

@@ -6,7 +6,7 @@ Editor de notas Markdown para Windows. Escribes con formato, como en un procesad
 
 - **Archivos locales.** Son archivos `.md` en una carpeta de tu PC. No hay cuenta ni nube, y puedes abrirlos con cualquier otro editor.
 - **Cuadernos y conexiones.** Una carpeta es un cuaderno. Enlaza notas entre sí y mira esas conexiones en un grafo.
-- **Preparado para IA.** Una IA externa, como Claude o Codex, puede buscar y leer tus notas mediante una CLI local y la skill `hiloo-notes`.
+- **Preparado para IA.** Una IA externa, como Claude, Cursor o Codex, puede buscar y leer tus notas mediante un servidor MCP, una CLI local y la skill `hiloo-notes`.
 
 ![hiloo con un cuaderno abierto y una nota con formato](docs/images/portada.png)
 
@@ -58,7 +58,9 @@ Escribe un bloque de código `mermaid` y hiloo dibuja el diagrama dentro de la n
 
 hiloo no lleva una IA dentro. Cuando abres un cuaderno, hiloo lo añade a un índice local en SQLite (`%APPDATA%\hiloo\brain.sqlite`) con búsqueda de texto completo. Nada sale de tu PC.
 
-Una IA externa consulta ese índice con la CLI `scripts/brain.cjs`. La CLI necesita `npm ci` y `npm run build` una vez:
+Claude Desktop, Claude Code, Cursor y otros clientes MCP consultan ese índice con el servidor MCP de solo lectura que incluye hiloo: catálogo, búsqueda, secciones, lectura y enlaces. Configuración copiable para la app instalada y para desarrollo: [Servidor MCP](docs/mcp.md).
+
+Una IA que ejecuta comandos también puede usar la CLI `scripts/brain.cjs`, que además registra cuadernos y crea enlaces manuales. La CLI necesita `npm ci` y `npm run build` una vez:
 
 ```powershell
 node scripts/brain.cjs catalog                 # cuadernos registrados
@@ -68,7 +70,7 @@ node scripts/brain.cjs read <chunk-id>         # leer un fragmento; el id sale d
 
 Las respuestas son JSON con límites de tamaño, para que la IA lea solo lo necesario. El índice solo ve notas guardadas.
 
-La skill [`hiloo-notes`](skills/hiloo-notes/SKILL.md) enseña a la IA a usar la CLI: empezar por el catálogo, buscar y leer fragmentos. Para guardar notas, la IA usa sus propias herramientas de archivos con las reglas de la skill, que evitan pisar cambios ajenos. Copia la carpeta `skills/hiloo-notes` donde tu herramienta busque skills y define la variable de entorno `HILOO_ROOT` con la ruta de este repositorio.
+La skill [`hiloo-notes`](skills/hiloo-notes/SKILL.md) enseña a la IA a usar el MCP o la CLI: empezar por el catálogo, buscar y leer fragmentos. Para guardar notas, la IA usa sus propias herramientas de archivos con las reglas de la skill, que evitan pisar cambios ajenos. Copia la carpeta `skills/hiloo-notes` donde tu herramienta busque skills y define la variable de entorno `HILOO_ROOT` con la ruta de este repositorio.
 
 Comandos, límites y funcionamiento del índice: [Índice para IA](docs/cerebro-sqlite.md).
 
@@ -95,7 +97,7 @@ Otros comandos:
 
 ## Próximamente
 
-Hay trabajo en marcha, sin fecha, en enlaces que se abren al pulsarlos, pestañas, mejor búsqueda en varios idiomas, un servidor MCP de solo lectura para IA y actualizaciones automáticas.
+Hay trabajo en marcha, sin fecha, en enlaces que se abren al pulsarlos, pestañas, mejor búsqueda en varios idiomas, herramientas MCP para escribir notas y actualizaciones automáticas.
 
 ## Documentación
 
@@ -104,6 +106,7 @@ Hay trabajo en marcha, sin fecha, en enlaces que se abren al pulsarlos, pestaña
 - [Markdown admitido y Mermaid](docs/estilo-markdown.md)
 - [Tema de la interfaz](docs/tema-interfaz.md)
 - [Índice para IA](docs/cerebro-sqlite.md)
+- [Servidor MCP](docs/mcp.md)
 - [Guía de desarrollo](docs/desarrollo.md)
 - [Alcance implementado y pendiente](STACK.md)
 
