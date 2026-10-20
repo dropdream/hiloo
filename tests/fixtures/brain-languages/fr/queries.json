@@ -1,0 +1,10 @@
+[
+  {"id":"fr-1","query":"Combien de factures ont été annulées l'an dernier ?","gold":[{"path":"facturation.md","heading":"Avoirs et annulations"}],"note":"annulées (participe féminin pluriel) ↔ annulé / annulation"},
+  {"id":"fr-2","query":"Quand faut-il relancer une école qui paie en retard ?","gold":[{"path":"facturation.md","heading":"Relances"}],"note":"relancer (infinitif) ↔ relance / relances"},
+  {"id":"fr-3","query":"Comment emballer un beau livre pour éviter d'abîmer un coin ?","gold":[{"path":"expeditions.md","heading":"Emballage des livres"}],"note":"emballer ↔ emballés / emballage; coin ↔ coins; abîmer ↔ abîmé"},
+  {"id":"fr-4","query":"Au bout de combien de temps retourne-t-on une nouveauté invendue ?","gold":[{"path":"stock.md","heading":"Retours aux éditeurs"}],"note":"retourne ↔ retournées / retours; nouveauté ↔ nouveautés"},
+  {"id":"fr-5","query":"Avant quelle date faut-il demander ses congés d'été ?","gold":[{"path":"conges.md","heading":"Demandes de congés"}],"note":"demander (verbe) ↔ demandes (nom pluriel)"},
+  {"id":"fr-6","query":"Que fait-on quand un client réclame pour une page mal reliée ?","gold":[{"path":"service-client.md","heading":"Réclamations"}],"note":"réclame (verbe) ↔ réclamations; page ↔ pages; reliée ↔ reliées"},
+  {"id":"fr-7","query":"Les données sont-elles sauvegardées tous les soirs ?","gold":[{"path":"sauvegardes.md","heading":"Sauvegarde quotidienne"}],"note":"sauvegardées ↔ sauvegarde; soirs ↔ soir"},
+  {"id":"fr-8","query":"Quel taux de TVA appliquer aux factures de livres numériques ?","gold":[],"note":"sans réponse : la facturation est décrite mais jamais la TVA"}
+]

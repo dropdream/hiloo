@@ -1,0 +1,10 @@
+[
+  {"id":"es-1","query":"¿Cuántas facturas se anularon en marzo?","gold":[{"path":"facturacion.md","heading":"Anulaciones y rectificativas"}],"note":"anularon (pretérito) ↔ anula / anulaciones"},
+  {"id":"es-2","query":"¿Qué ocurre cuando un cliente acumula deudas de más de sesenta días?","gold":[{"path":"facturacion.md","heading":"Cobros pendientes"}],"note":"deudas (plural) ↔ deuda"},
+  {"id":"es-3","query":"¿En qué tipo de caja viaja una rueda?","gold":[{"path":"envios.md","heading":"Preparación de paquetes"}],"note":"viaja ↔ viajan; rueda ↔ ruedas"},
+  {"id":"es-4","query":"¿Cuándo conviene reponer las cadenas y la pastilla de freno?","gold":[{"path":"inventario.md","heading":"Reposición de existencias"}],"note":"reponer (infinitivo) ↔ reponen / reposición; pastilla ↔ pastillas"},
+  {"id":"es-5","query":"¿Con cuánta antelación hay que solicitar las vacaciones?","gold":[{"path":"vacaciones.md","heading":"Solicitud de días libres"}],"note":"solicitar (verbo) ↔ solicitudes / solicitud"},
+  {"id":"es-6","query":"¿Qué se ofrece cuando un cliente reclama por un recambio defectuoso?","gold":[{"path":"soporte.md","heading":"Reclamaciones"}],"note":"reclama (verbo) ↔ reclamación; defectuoso ↔ defectuosa"},
+  {"id":"es-7","query":"¿Cuánto tiempo se guarda una copia mensual?","gold":[{"path":"copias.md","heading":"Frecuencia"}],"note":"guarda ↔ guardan; mensual ↔ mensuales"},
+  {"id":"es-8","query":"¿Qué tipo de IVA se aplica a las facturas intracomunitarias?","gold":[],"note":"sin respuesta: el cuaderno habla de facturas pero no de IVA"}
+]
