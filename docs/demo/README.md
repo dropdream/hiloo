@@ -10,4 +10,4 @@ npx playwright test --config docs/demo/capturas/playwright.config.ts
 python docs/demo/capturas/reducir.py .verification/capturas/png docs/images
 ```
 
-El script copia el cuaderno a `C:\hiloo-demo\Proyecto de ejemplo`, para que no aparezcan rutas personales, y no borra esa copia al terminar. Deja los PNG originales en `.verification/capturas/png`; `reducir.py` los pasa a 1600 px y 256 colores y necesita Pillow (`pip install pillow`). `npm test` no ejecuta este script, porque solo busca pruebas en `tests/`.
+El script crea una carpeta nueva con nombre único, como `C:\hiloo-demo-a1b2c3`, y copia ahí el cuaderno para que no aparezcan rutas personales. Nunca usa una carpeta que ya exista y, al terminar, borra solo la que creó. Deja los PNG originales en `.verification/capturas/png`; `reducir.py` los pasa a 1600 px y 256 colores y necesita Pillow (`pip install pillow`). `npm test` no ejecuta este script, porque solo busca pruebas en `tests/`.

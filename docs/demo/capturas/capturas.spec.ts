@@ -1,11 +1,10 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { Page } from '@playwright/test'
+import type { ElectronApplication, Page } from '@playwright/test'
 import { test, expect, chooseOpen } from '../../../tests/fixtures'
 
-// Copia el cuaderno a una ruta neutra para que no aparezcan rutas personales.
+// El cuaderno se copia a una carpeta nueva en C:\ para que no salgan rutas personales.
 const source = resolve('docs/demo/Proyecto de ejemplo')
-const root = 'C:/hiloo-demo/Proyecto de ejemplo'
 const out = resolve('.verification/capturas/png')
 
 async function shot(page: Page, name: string) {
@@ -14,8 +13,17 @@ async function shot(page: Page, name: string) {
 }
 
 test('capturas del README', async ({ application, editorPage: page }) => {
-  await fs.rm(root, { recursive: true, force: true })
-  await fs.cp(source, root, { recursive: true })
+  // mkdtemp nunca reutiliza una carpeta existente; al final solo se borra la creada aquí.
+  const base = await fs.mkdtemp('C:/hiloo-demo-')
+  try {
+    await capture(application, page, join(base, 'Proyecto de ejemplo'))
+  } finally {
+    await fs.rm(base, { recursive: true, force: true, maxRetries: 5 })
+  }
+})
+
+async function capture(application: ElectronApplication, page: Page, root: string) {
+  await fs.cp(source, root, { recursive: true, errorOnExist: true, force: false })
   await fs.mkdir(out, { recursive: true })
   const win = await application.browserWindow(page)
   await win.evaluate((w) => { w.setSize(1280, 800); w.center() })
@@ -77,4 +85,4 @@ test('capturas del README', async ({ application, editorPage: page }) => {
   await page.waitForTimeout(1000)
   await shot(page, 'vista-previa-impresion')
   await preview.getByRole('button', { name: 'Cancelar', exact: true }).click()
-})
+}
