@@ -13,7 +13,7 @@ hiloo is a local Markdown editor for Windows, built with Electron, React, TypeSc
 
 ## Build, Test, and Development Commands
 
-Use Windows x64 with Node.js `^22.12.0 || >=24.0.0` and npm. Run commands from the repository root.
+Use Windows x64 with Node.js `^22.13.0 || >=24.0.0` and npm. Run commands from the repository root.
 
 - `npm ci`: install locked dependencies.
 - `npm run dev`: launch Electron with development reloads.

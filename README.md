@@ -1,53 +1,116 @@
 # hiloo
 
-Notas en Markdown para Windows.
+Español · [English](README.en.md)
 
-hiloo sirve para escribir, ordenar y conectar tus notas. Puedes llevar apuntes de estudio, reuniones o proyectos en cuadernos, y abrir **Cerebro** para ver las conexiones entre tus notas.
+Editor de notas Markdown para Windows. Escribes con formato, como en un procesador de textos, y hiloo guarda archivos `.md` normales en tu disco.
 
-Tus notas son archivos `.md` en tu computador. No necesitas una cuenta y puedes abrirlas con otro editor cuando quieras.
+- **Archivos locales.** Son archivos `.md` en una carpeta de tu PC. No hay cuenta ni nube, y puedes abrirlos con cualquier otro editor.
+- **Cuadernos y conexiones.** Una carpeta es un cuaderno. Enlaza notas entre sí y mira esas conexiones en un grafo.
+- **Preparado para IA.** Una IA externa, como Claude o Codex, puede buscar y leer tus notas mediante una CLI local y la skill `hiloo-notes`.
 
-![Un cuaderno abierto en hiloo](docs/images/cuaderno-sidebar.png)
+![hiloo con un cuaderno abierto y una nota con formato](docs/images/portada.png)
 
-## De una nota a un cuaderno
+> hiloo está en desarrollo. Por ahora funciona solo en Windows de 64 bits y se prueba desde el código fuente: no hay instalador publicado. El guardado es manual; todavía no hay autoguardado ni historial de versiones.
 
-Una carpeta funciona como cuaderno. Desde hiloo puedes crear notas y subcarpetas, buscar por nombre y volver a tus cuadernos recientes.
+## Qué puedes hacer
 
-Para escribir, alterna entre el código Markdown y una vista con formato. Hay títulos, listas de tareas, tablas, imágenes y enlaces, además de temas Día y Noche.
+### Cuadernos
 
-Si una nota se relaciona con otra, enlázalas. **Cerebro** muestra esas conexiones y te deja revisar una nota antes de abrirla. Así puedes recorrer un proyecto sin perder de vista lo que estabas escribiendo.
+Abre una carpeta como cuaderno. La barra lateral muestra sus notas y subcarpetas, permite crear notas y carpetas y filtra por nombre. hiloo recuerda tus últimos diez cuadernos y documentos.
 
-## Diagramas e impresión
+El botón **Enlace** busca una nota del cuaderno y escribe el enlace Markdown por ti. Para abrir la nota enlazada, usa la barra lateral o Cerebro; al pulsar un enlace dentro de la nota, hiloo te deja editarlo.
 
-Agrega un flujo Mermaid a una nota y mira el diagrama junto a su código editable. Sirve para explicar pasos, decisiones o cómo se organiza un proceso.
+Al abrir un cuaderno sin índice, hiloo ofrece crear `indice.md` con un mapa de sus notas, pensado para ti, para tu IA o para ambos.
 
-Cuando necesites imprimir, elige el tamaño de papel y revisa las páginas en la vista previa de hiloo. Después abre el diálogo de Windows para elegir la impresora.
+### Dos vistas: con formato y en código
 
-| Un flujo dentro de la nota | Vista previa antes de imprimir |
+**Vista impresión** muestra la nota con formato y la editas directamente: títulos, listas, tareas, tablas, citas, imágenes y enlaces. **Markdown** muestra y edita el código fuente. Puedes cambiar de vista en cualquier momento sin tocar el archivo.
+
+| Vista impresión | Markdown |
 | --- | --- |
-| ![Flujo Mermaid con su código editable](docs/images/flujo-mermaid-420.png) | ![Vista previa de impresión en una ventana estrecha](docs/images/vista-previa-mermaid-420.png) |
+| ![Tabla y tareas con formato](docs/images/edicion-visual.png) | ![La misma nota en código Markdown](docs/images/modo-codigo.png) |
 
-## Cómo probarlo
+### Temas Día y Noche
 
-hiloo está en desarrollo para **Windows de 64 bits**. Aún no hay un instalador publicado en este repositorio.
+La interfaz tiene tema Día y tema Noche. La hoja se elige aparte: papel blanco o fondo noche, como en esta captura. La barra inferior controla el zoom.
 
-Si tienes Node.js 22.13 o posterior en la rama 22, o Node.js 24+, ejecuta desde la carpeta del proyecto:
+![Nota con tema Noche y fondo noche](docs/images/tema-noche.png)
+
+### Diagramas Mermaid
+
+Escribe un bloque de código `mermaid` y hiloo dibuja el diagrama dentro de la nota. Por ahora admite diagramas de flujo (`flowchart` y `graph`). El código sigue editable debajo.
+
+![Diagrama Mermaid con su código desplegado](docs/images/mermaid.png)
+
+### Cerebro
+
+**Cerebro** dibuja el cuaderno como un grafo: cada nota es un punto y cada enlace, una flecha. Pulsa una nota para leerla sin cerrar la que estás editando.
+
+![Cerebro con el grafo del cuaderno y la vista previa de una nota](docs/images/cerebro.png)
+
+### Imprimir
+
+**Imprimir** abre una vista previa con las páginas reales. Ahí revisas el resultado y después eliges la impresora en Windows. Puedes elegir el papel (Carta, Oficio, Legal, A4, A5 o uno a medida) y ajustar el estilo impreso con tu propio CSS.
+
+![Vista previa de impresión de una nota](docs/images/vista-previa-impresion.png)
+
+## hiloo + IA
+
+hiloo no lleva una IA dentro. Cuando abres un cuaderno, hiloo lo añade a un índice local en SQLite (`%APPDATA%\hiloo\brain.sqlite`) con búsqueda de texto completo. Nada sale de tu PC.
+
+Una IA externa consulta ese índice con la CLI `scripts/brain.cjs`. La CLI necesita `npm ci` y `npm run build` una vez:
 
 ```powershell
-npm ci
-npm run dev
+node scripts/brain.cjs catalog                 # cuadernos registrados
+node scripts/brain.cjs search "riego goteo"    # buscar en las notas
+node scripts/brain.cjs read <chunk-id>         # leer un fragmento; el id sale de search
 ```
 
-El guardado es manual: todavía no hay autoguardado ni historial de versiones.
+Las respuestas son JSON con límites de tamaño, para que la IA lea solo lo necesario. El índice solo ve notas guardadas.
 
-## Para seguir
+La skill [`hiloo-notes`](skills/hiloo-notes/SKILL.md) enseña a la IA a usar la CLI: empezar por el catálogo, buscar y leer fragmentos. Para guardar notas, la IA usa sus propias herramientas de archivos con las reglas de la skill, que evitan pisar cambios ajenos. Copia la carpeta `skills/hiloo-notes` donde tu herramienta busque skills y define la variable de entorno `HILOO_ROOT` con la ruta de este repositorio.
 
-- [Cómo usar cuadernos y Cerebro](docs/cuadernos-y-cerebro.md)
-- [Flujos Mermaid y formatos admitidos](docs/estilo-markdown.md#flujos-mermaid)
-- [Papel, vista previa e impresión](docs/vistas-e-impresion.md)
-- [Consultar tus cuadernos desde herramientas de IA](docs/cerebro-sqlite.md)
+Comandos, límites y funcionamiento del índice: [Índice para IA](docs/cerebro-sqlite.md).
 
-Para desarrollar o contribuir, revisa la [guía de desarrollo](docs/desarrollo.md) y las [reglas del repositorio](AGENTS.md).
+## Probarlo
+
+Necesitas Windows de 64 bits, Node.js 22.13+ o 24+ y npm. Desde la carpeta del repositorio:
+
+```powershell
+npm ci        # instala dependencias y Electron
+npm run dev   # abre hiloo en modo desarrollo
+```
+
+Para empezar con notas de ejemplo, pulsa **Abrir cuaderno**, elige [`docs/demo/Proyecto de ejemplo`](docs/demo/Proyecto%20de%20ejemplo) y abre `plan.md`. Después pulsa **Cerebro**. Es el mismo cuaderno de las capturas.
+
+Otros comandos:
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm run build` | Comprueba tipos y compila en `out/`. |
+| `npm start` | Abre la versión compilada. |
+| `npm run pack:win` | Crea `dist/win-unpacked/hiloo.exe`. |
+| `npm run dist:win` | Crea un instalador NSIS sin firmar, para uso propio. |
+| `npm test -- --project=local` | Ejecuta las pruebas de Playwright tras `npm run build`. |
+
+## Próximamente
+
+Hay trabajo en marcha, sin fecha, en enlaces que se abren al pulsarlos, pestañas, mejor búsqueda en varios idiomas, un servidor MCP de solo lectura para IA y actualizaciones automáticas.
+
+## Documentación
+
+- [Cuadernos y Cerebro](docs/cuadernos-y-cerebro.md)
+- [Vistas, zoom e impresión](docs/vistas-e-impresion.md)
+- [Markdown admitido y Mermaid](docs/estilo-markdown.md)
+- [Tema de la interfaz](docs/tema-interfaz.md)
+- [Índice para IA](docs/cerebro-sqlite.md)
+- [Guía de desarrollo](docs/desarrollo.md)
+- [Alcance implementado y pendiente](STACK.md)
+
+## Contribuir
+
+Lee [CONTRIBUTING.md](CONTRIBUTING.md). Para errores y propuestas, abre un [issue](https://github.com/dropdream/hiloo/issues/new/choose).
 
 ## Licencia
 
-hiloo es software libre bajo la [licencia MIT](LICENSE).
+[MIT](LICENSE).
