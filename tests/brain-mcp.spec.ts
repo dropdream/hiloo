@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promises as fs } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, toNamespacedPath } from 'node:path'
 import { promisify } from 'node:util'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -228,5 +228,30 @@ test('el MCP lee mientras otro proceso mantiene la base abierta y escribe', asyn
     }
   } finally {
     await client.close()
+  }
+})
+
+test('el MCP recorta los avisos de sync para que la respuesta quepa', async ({}, testInfo) => {
+  const base = testInfo.outputPath('mcp-warnings')
+  // Rutas largas y lectura denegada: cada aviso de fs lleva la ruta completa.
+  const folder = join(base, 'Cuaderno', ...Array.from({ length: 3 }, (_, n) => `${String(n).repeat(120)}`))
+  await fs.mkdir(folder, { recursive: true })
+  const notes = Array.from({ length: 10 }, (_, n) => join(folder, `nota-${n}.md`))
+  for (const note of notes) await fs.writeFile(note, '# Nota\n', 'utf8')
+  const database = join(base, 'brain.sqlite')
+  const notebook = await cli<BrainNotebook>(database, 'register', join(base, 'Cuaderno'))
+  const icacls = (...args: string[]) => execute('icacls', args, { windowsHide: true })
+  for (const note of notes) await icacls(toNamespacedPath(note), '/deny', `${process.env.USERNAME}:(R)`)
+  const client = await connect(testInfo.project.name, { HILOO_BRAIN_DB: database })
+  try {
+    const sync = await call<{ status: string; warnings: string[]; warningsOmitted: number }>(client, 'sync', { notebook: notebook.id }, 4000)
+    expect(sync.isError).toBe(false)
+    expect(sync.data.status).toBe('partial')
+    expect(sync.data.warnings.length).toBeGreaterThan(0)
+    expect(sync.data.warnings.length + sync.data.warningsOmitted).toBe(10)
+    expect(sync.data.warningsOmitted).toBeGreaterThan(0)
+  } finally {
+    await client.close()
+    await icacls(toNamespacedPath(base), '/reset', '/T', '/Q')
   }
 })

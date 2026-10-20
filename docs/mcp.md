@@ -100,7 +100,7 @@ Esta parte la usa sobre todo la IA, pero ayuda a entender qué hace. Todas devue
 | `outline` | Lista las secciones de una nota para leer solo la necesaria. | `node`, `limit` (50), `offset`, `maxChars` | 6.000 (16.000) |
 | `read` | Lee hasta 8 fragmentos después de comprobar el archivo en disco. | `ids`, `expectedHashes`, `maxChars` | 12.000 (32.000) |
 | `related` | Vecinos directos de un cuaderno, carpeta o nota: `hierarchy` (contenido de carpetas), `link` (enlaces Markdown, por defecto) o `manual` (relaciones creadas por la persona). | `node`, `type`, `direction`, `limit` (20), `offset`, `maxChars` | 6.000 (16.000) |
-| `sync` | Vuelve a indexar un cuaderno desde el disco. | `notebook` | 4.000 (fijo) |
+| `sync` | Vuelve a indexar un cuaderno desde el disco. Si los avisos no caben, devuelve los primeros y `warningsOmitted`. | `notebook` | 4.000 (fijo) |
 
 El flujo habitual es `catalog` → `search` → `outline` o `read` → `related`, si hace falta más contexto. Cuando `truncated` es `true`, la IA continúa con el `nextOffset` devuelto.
 

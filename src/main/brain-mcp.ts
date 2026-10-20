@@ -5,6 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import type { BrainSyncResult } from '../shared/brain'
 import { BrainIndex } from './brain'
 import { bounded } from './brain/output'
 
@@ -52,6 +53,7 @@ const sha256 = z.string().regex(/^[a-f\d]{64}$/i)
 const offset = z.number().int().min(0).max(1000000).optional()
 const budget = (fallback: number, maximum = 16000) =>
   z.number().int().min(512).max(maximum).default(fallback).describe('Max chars of the JSON reply')
+const syncBudget = 4000
 const reading = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
 const server = new McpServer(
@@ -163,14 +165,20 @@ server.registerTool(
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
   ({ notebook }) =>
-    respond(4000, async () => {
+    respond(syncBudget, async () => {
       if (!existsSync(dbPath)) index()
       const writer = new BrainIndex(dbPath)
+      let result: BrainSyncResult
       try {
-        return await writer.sync(notebook)
+        result = await writer.sync(notebook)
       } finally {
         writer.close()
       }
+      // La sincronización ya terminó: se quitan avisos hasta que la respuesta quepa.
+      const warnings = [...result.warnings]
+      const reply = () => ({ ...result, warnings, warningsOmitted: result.warnings.length - warnings.length })
+      while (warnings.length && JSON.stringify(reply()).length > syncBudget) warnings.pop()
+      return warnings.length < result.warnings.length ? reply() : result
     })
 )
 
