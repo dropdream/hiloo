@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, type ElectronApplication, type Page, type TestInfo } from '@playwright/test'
 import { test, expect, chooseOpen, chooseSave, chooseChanges, launchApplication, closeApplication } from './fixtures'
 
 async function notebook(application: ElectronApplication, page: Page, root: string, notes: Record<string, string>) {
@@ -272,11 +272,40 @@ test('Guardar como sobre un archivo abierto en otra pestaña se rechaza sin toca
   expect(tabs.tabs.map((tab) => tab.path)).toEqual([join(root, 'a.md'), join(root, 'b.md')])
 })
 
-test('la restauración tardía no quita el foco a la nota que el usuario ya abrió', async ({}, testInfo) => {
-  test.skip(testInfo.project.name !== 'local', 'El ejecutable empaquetado no admite --require para retener la lectura.')
-  // Carpetas separadas: el cuaderno de mia.md no debe leer lenta.md al escanearse.
-  const restoredRoot = testInfo.outputPath('restauracion-tardia', 'restauradas')
-  const userRoot = testInfo.outputPath('restauracion-tardia', 'usuario')
+// Arranca hiloo reteniendo `lstat` de ciertas notas hasta que exista su señal; mientras espera, deja `<señal>.esperando`.
+async function launchHeld(testInfo: TestInfo, saved: { paths: string[]; active: number }, holds: { suffix: string; gate: string; skip?: number }[]) {
+  const profile = testInfo.outputPath('.profile')
+  await fs.mkdir(profile, { recursive: true })
+  await fs.writeFile(join(profile, 'open-tabs.json'), JSON.stringify(saved))
+  const hook = testInfo.outputPath('retener-lectura.cjs')
+  await fs.writeFile(hook, `const fs = require('node:fs')
+const rules = ${JSON.stringify(holds.map((hold) => ({ skip: 0, ...hold })))}
+const original = fs.promises.lstat
+fs.promises.lstat = async function (path, ...rest) {
+  for (const rule of rules) {
+    if (!String(path).endsWith(rule.suffix) || rule.skip-- > 0 || fs.existsSync(rule.gate)) continue
+    fs.writeFileSync(rule.gate + '.esperando', '')
+    while (!fs.existsSync(rule.gate)) await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  return original.call(this, path, ...rest)
+}
+`)
+  const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+  delete env.ELECTRON_RUN_AS_NODE
+  delete env.ELECTRON_RENDERER_URL
+  const application = await electron.launch({ args: ['--require', hook, '.', `--user-data-dir=${profile}`], env })
+  await application.evaluate(({ dialog }) => {
+    dialog.showMessageBox = async () => ({ response: 2, checkboxChecked: false })
+  })
+  const page = await application.firstWindow()
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled({ timeout: 30_000 })
+  return { application, page }
+}
+
+// Carpetas separadas: el cuaderno del usuario no debe leer lenta.md al escanearse.
+async function restoreFolders(testInfo: TestInfo, name: string) {
+  const restoredRoot = testInfo.outputPath(name, 'restauradas')
+  const userRoot = testInfo.outputPath(name, 'usuario')
   await fs.mkdir(restoredRoot, { recursive: true })
   await fs.mkdir(userRoot, { recursive: true })
   const first = join(restoredRoot, 'a.md')
@@ -285,29 +314,16 @@ test('la restauración tardía no quita el foco a la nota que el usuario ya abri
   await fs.writeFile(first, '# A\n')
   await fs.writeFile(slow, '# Lenta\n')
   await fs.writeFile(mine, '# Mía\n')
-  const profile = testInfo.outputPath('.profile')
-  await fs.mkdir(profile, { recursive: true })
-  await fs.writeFile(join(profile, 'open-tabs.json'), JSON.stringify({ paths: [first, slow], active: 1 }))
-  // Retiene la lectura de lenta.md hasta que exista la señal: la restauración sigue en curso.
-  const gate = testInfo.outputPath('liberar')
-  const hook = testInfo.outputPath('retener-lectura.cjs')
-  await fs.writeFile(hook, `const fs = require('node:fs')
-const original = fs.promises.lstat
-fs.promises.lstat = async function (path, ...rest) {
-  if (String(path).endsWith('lenta.md')) while (!fs.existsSync(${JSON.stringify(gate)})) await new Promise((resolve) => setTimeout(resolve, 50))
-  return original.call(this, path, ...rest)
+  return { userRoot, first, slow, mine, gate: testInfo.outputPath('liberar') }
 }
-`)
-  const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
-  delete env.ELECTRON_RUN_AS_NODE
-  delete env.ELECTRON_RENDERER_URL
-  const application = await electron.launch({ args: ['--require', hook, '.', `--user-data-dir=${profile}`], env })
+
+const heldOnly = 'El ejecutable empaquetado no admite --require para retener la lectura.'
+
+test('la restauración tardía no quita el foco a la nota que el usuario ya abrió', async ({}, testInfo) => {
+  test.skip(testInfo.project.name !== 'local', heldOnly)
+  const { first, slow, mine, gate } = await restoreFolders(testInfo, 'restauracion-tardia')
+  const { application, page } = await launchHeld(testInfo, { paths: [first, slow], active: 1 }, [{ suffix: 'lenta.md', gate }])
   try {
-    await application.evaluate(({ dialog }) => {
-      dialog.showMessageBox = async () => ({ response: 2, checkboxChecked: false })
-    })
-    const page = await application.firstWindow()
-    await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled({ timeout: 30_000 })
     await chooseOpen(application, mine)
     expect(await page.evaluate(() => window.documents.open())).toEqual({ status: 'ok' })
     const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
@@ -323,4 +339,87 @@ fs.promises.lstat = async function (path, ...rest) {
   } finally {
     await closeApplication(application)
   }
+})
+
+test('abrir una nota mientras la restauración la añade no la duplica', async ({}, testInfo) => {
+  test.skip(testInfo.project.name !== 'local', heldOnly)
+  const { slow, mine, gate } = await restoreFolders(testInfo, 'restauracion-carrera')
+  const userGate = testInfo.outputPath('liberar-mia')
+  // La primera lectura de mia.md es la de la restauración; la segunda, la del usuario, queda retenida.
+  const { application, page } = await launchHeld(testInfo, { paths: [mine, slow], active: 0 }, [
+    { suffix: 'lenta.md', gate },
+    { suffix: 'mia.md', gate: userGate, skip: 1 }
+  ])
+  try {
+    await chooseOpen(application, mine)
+    const opening = page.evaluate(() => window.documents.open())
+    await expect.poll(() => fs.access(`${userGate}.esperando`).then(() => true, () => false)).toBe(true)
+    await fs.writeFile(gate, '')
+    const tabs = page.getByRole('tablist', { name: 'Documentos abiertos' })
+    await expect(tabs.getByRole('tab')).toHaveCount(3)
+    await fs.writeFile(userGate, '')
+    expect(await opening).toEqual({ status: 'ok' })
+    await expect(tabs.getByRole('tab')).toHaveText(['mia.md', 'lenta.md'])
+    await expect(tabs.getByRole('tab', { name: 'mia.md', exact: true })).toHaveAttribute('aria-selected', 'true')
+  } finally {
+    await closeApplication(application)
+  }
+})
+
+test('la restauración tardía no añade pestañas al cuaderno que el usuario eligió después', async ({}, testInfo) => {
+  test.skip(testInfo.project.name !== 'local', heldOnly)
+  const { userRoot, first, slow, gate } = await restoreFolders(testInfo, 'restauracion-otro-cuaderno')
+  const { application, page } = await launchHeld(testInfo, { paths: [first, slow], active: 0 }, [{ suffix: 'lenta.md', gate }])
+  try {
+    await chooseOpen(application, userRoot)
+    expect(await page.evaluate(() => window.workspace.choose())).toEqual({ status: 'ok' })
+    await fs.writeFile(gate, '')
+    const saved = testInfo.outputPath('.profile', 'open-tabs.json')
+    await expect.poll(async () => JSON.parse(await fs.readFile(saved, 'utf8')).paths).toEqual([])
+    await expect(page.getByRole('tablist', { name: 'Documentos abiertos' }).getByRole('tab')).toHaveText(['Sin título'])
+  } finally {
+    await closeApplication(application)
+  }
+})
+
+test('cambiar o cerrar una pestaña marca la nota actual sin volver a explorar el cuaderno', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('cambio-sin-escaneo')
+  const snapshot = await notebook(application, page, root, { 'alfa.md': '# Alfa\n', 'beta.md': '# Beta\n' })
+  expect(await page.evaluate((id) => window.workspace.open(id), noteId(snapshot, 'alfa.md'))).toEqual({ status: 'ok' })
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), noteId(snapshot, 'beta.md'))).toEqual({ status: 'ok' })
+  // Una nota creada fuera de hiloo solo aparece al actualizar, abrir o guardar.
+  await fs.writeFile(join(root, 'gamma.md'), '# Gamma\n')
+  const names = (current: { notes: { name: string }[] }) => current.notes.map((note) => note.name)
+  const { tabs } = await page.evaluate(() => window.documents.tabs())
+  expect(await page.evaluate((id) => window.documents.activate(id), tabs[0].id)).toEqual({ status: 'ok' })
+  let current = (await page.evaluate(() => window.workspace.current()))!
+  expect(current.currentNoteId).toBe(noteId(snapshot, 'alfa.md'))
+  expect(names(current)).toEqual(['alfa.md', 'beta.md'])
+  expect(await page.evaluate((id) => window.documents.closeTab(id), tabs[0].id)).toEqual({ status: 'ok' })
+  current = (await page.evaluate(() => window.workspace.current()))!
+  expect(current.currentNoteId).toBe(noteId(snapshot, 'beta.md'))
+  expect(names(current)).toEqual(['alfa.md', 'beta.md'])
+  expect(await page.evaluate(() => window.workspace.refresh())).toEqual({ status: 'ok' })
+  current = (await page.evaluate(() => window.workspace.current()))!
+  expect(names(current)).toEqual(['alfa.md', 'beta.md', 'gamma.md'])
+})
+
+test('Abrir sobre una nota ya abierta en otra pestaña la enfoca sin preguntar', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('abrir-ya-abierta')
+  const snapshot = await notebook(application, page, root, { 'a.md': '# A\n', 'b.md': '# B\n' })
+  expect(await page.evaluate((id) => window.workspace.open(id), noteId(snapshot, 'a.md'))).toEqual({ status: 'ok' })
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), noteId(snapshot, 'b.md'))).toEqual({ status: 'ok' })
+  const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
+  await editor.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(' local')
+  await expect.poll(async () => (await page.evaluate(() => window.documents.tabs())).tabs[1].dirty).toBe(true)
+  // Si preguntara, la respuesta sería Cancelar y no se abriría nada.
+  await chooseChanges(application, 2)
+  await chooseOpen(application, join(root, 'a.md'))
+  expect(await page.evaluate(() => window.documents.open())).toEqual({ status: 'ok' })
+  const tabs = page.getByRole('tablist', { name: 'Documentos abiertos' })
+  await expect(tabs.getByRole('tab', { name: 'a.md', exact: true })).toHaveAttribute('aria-selected', 'true')
+  const state = await page.evaluate(() => window.documents.tabs())
+  expect(state.tabs.map((tab) => [tab.name, tab.dirty])).toEqual([['a.md', false], ['b.md', true]])
 })

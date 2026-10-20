@@ -55,6 +55,8 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   let document = blankDocument()
   let tabs: DocumentSession[] = [document]
   let tabsRestored = false
+  // Cambia al elegir otro cuaderno: una restauración en curso ya no corresponde.
+  let generation = 0
   const openTabs = new OpenTabsStore(join(app.getPath('userData'), 'open-tabs.json'))
   let busy = false
   let allowClose = false
@@ -102,6 +104,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     current: () => document,
     // Cambiar de cuaderno cierra todas las pestañas, como antes cerraba el documento.
     reset: () => {
+      generation++
       document = blankDocument()
       tabs = [document]
       emit()
@@ -308,7 +311,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (!existing || existing === document) return false
     document = existing
     emit()
-    await workspaces.refreshCurrent()
+    workspaces.selectCurrent()
     return true
   }
 
@@ -355,7 +358,12 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       throw new Error(
         'Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.'
       )
-    if (target === 'current' || pristine(document)) replaceActive(next)
+    // La restauración pudo añadir la misma nota mientras se leía: se enfoca esa.
+    const open = tabs.find((session) => session !== document && session.path !== null && samePath(session.path, path))
+    if (open) {
+      if (pristine(document)) tabs.splice(tabs.indexOf(document), 1)
+      document = open
+    } else if (target === 'current' || pristine(document)) replaceActive(next)
     else {
       tabs.splice(tabs.indexOf(document) + 1, 0, next)
       document = next
@@ -368,6 +376,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
 
   async function restoreTabs(): Promise<void> {
     const initial = document
+    const restoring = generation
     const saved = await openTabs.load()
     const restored: DocumentSession[] = []
     let active: DocumentSession | undefined
@@ -382,6 +391,10 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       }
     }
     tabsRestored = true
+    if (restoring !== generation) {
+      emit()
+      return
+    }
     // Lo que el usuario abrió mientras tanto no se duplica.
     const pending = restored.filter((session) => !tabs.some((open) => open.path !== null && samePath(open.path, session.path!)))
     if (window.isDestroyed()) return
@@ -432,7 +445,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       if (target === document) return { status: 'ok' }
       document = target
       emit()
-      await workspaces.refreshCurrent()
+      workspaces.selectCurrent()
       return { status: 'ok' }
     })
   })
@@ -456,7 +469,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       if (!tabs.length) tabs.push(blankDocument())
       if (target === document) document = tabs[Math.min(index, tabs.length - 1)]
       emit()
-      await workspaces.refreshCurrent()
+      workspaces.selectCurrent()
       return { status: 'ok' }
     })
   })
@@ -555,15 +568,16 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   })
   handle('document:open', () =>
     operation(async () => {
-      if (!(await confirmChanges())) return { status: 'cancelled' }
-      const revision = document.revision
       const selection = await dialog.showOpenDialog(window, {
         title: 'Abrir Markdown',
         properties: ['openFile'],
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
       })
       if (selection.canceled || !selection.filePaths[0]) return { status: 'cancelled' }
-      return openPath(selection.filePaths[0], revision)
+      // Si ya está en otra pestaña, solo se enfoca: no hay nada que confirmar.
+      if (await focusPath(selection.filePaths[0])) return { status: 'ok' }
+      if (!(await confirmChanges())) return { status: 'cancelled' }
+      return openPath(selection.filePaths[0], document.revision)
     })
   )
 

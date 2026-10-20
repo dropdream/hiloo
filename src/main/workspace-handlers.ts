@@ -64,6 +64,15 @@ export function createWorkspaceHandlers(
     emitWorkspace()
   }
 
+  // Solo marca la nota actual con lo que ya está en memoria; no vuelve a explorar el cuaderno.
+  function selectCurrent(): void {
+    if (!workspace) return
+    const path = documents.current().path
+    const id = path ? workspace.ids.get(pathKey(path)) : undefined
+    workspace.snapshot = { ...workspace.snapshot, currentNoteId: id && workspace.paths.has(id) ? id : null }
+    emitWorkspace()
+  }
+
   async function followDocument(): Promise<void> {
     const documentPath = documents.current().path
     if (!documentPath) return
@@ -112,7 +121,7 @@ export function createWorkspaceHandlers(
   return {
     current: () => workspace,
     followDocument,
-    refreshCurrent: refreshWorkspace,
+    selectCurrent,
     openPath: openWorkspace,
     currentSnapshot: () => workspace?.snapshot ?? null,
     create: (parentId: unknown, value: unknown, kind: unknown) => {
