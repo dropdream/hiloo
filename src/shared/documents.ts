@@ -67,7 +67,7 @@ export interface DocumentBridge {
   update(id: string, content: string): Promise<DocumentResult>
   imageSource(id: string, source: string): Promise<string | null>
   followLink(id: string, href: string): Promise<DocumentLinkResult>
-  openNote(id: string, path: string): Promise<DocumentResult>
+  openNote(id: string, path: string, target?: OpenTarget): Promise<DocumentResult>
   onDocument(callback: (document: DocumentSnapshot) => void): () => void
   onBusy(callback: (busy: boolean) => void): () => void
   onError(callback: (message: string) => void): () => void

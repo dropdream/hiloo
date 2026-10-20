@@ -39,11 +39,11 @@ type WorkspaceAction =
   | { type: 'recent' | 'recent-document'; id: string }
   | { type: 'create'; parentId: string; name: string; kind: 'folder' | 'note' }
   | { type: 'index'; id: string; usage: NotebookIndexUsage }
-  | { type: 'note'; path: string; from: string }
+  | { type: 'note'; path: string; from: string; target: OpenTarget }
 
-// Punto de unión con las pestañas: 'new-tab' abrirá o enfocará la pestaña de la nota.
+// 'new-tab' abre la nota en otra pestaña o enfoca la que ya la muestra.
 export interface OpenNoteOptions {
-  target: 'new-tab' | 'current'
+  target: OpenTarget
   anchor?: string | null
   // Documento desde el que se pidió; si ya no es el actual, no se abre.
   from: string
@@ -137,14 +137,10 @@ export function App() {
     }
   }, [])
 
-  // Cada pestaña recupera su posición de desplazamiento.
+  // Cada pestaña recupera su posición; el editor ya cambió de documento y un ancla se aplica después.
   useEffect(() => {
     const area = workspaceArea.current
-    if (!area || !document) return
-    const top = scrollPositions.current.get(document.id) ?? 0
-    area.scrollTop = top
-    const frame = requestAnimationFrame(() => (area.scrollTop = top))
-    return () => cancelAnimationFrame(frame)
+    if (area && document) area.scrollTop = scrollPositions.current.get(document.id) ?? 0
   }, [document?.id])
 
   useEffect(() => {
@@ -326,7 +322,7 @@ export function App() {
             result = await window.workspace.open(request.id, request.target)
             break
           case 'note':
-            result = await window.documents.openNote(request.from, request.path)
+            result = await window.documents.openNote(request.from, request.path, request.target)
             break
           case 'recent':
             result = await window.workspace.openRecent(request.id)
@@ -404,13 +400,13 @@ export function App() {
 
   useEffect(showAnchor, [showAnchor, ready, document?.id])
 
-  // Única entrada para abrir notas desde enlaces. Sin pestañas todavía, 'new-tab' abre en la vista actual.
+  // Única entrada para abrir notas desde enlaces.
   const openNote = useCallback(
     async (path: string, options: OpenNoteOptions) => {
       const { from } = options
       if (from !== documentId.current) return
       pendingAnchor.current = options.anchor ? { from, anchor: options.anchor } : null
-      if (await runWorkspace({ type: 'note', path, from })) showAnchor()
+      if (await runWorkspace({ type: 'note', path, from, target: options.target })) showAnchor()
       else pendingAnchor.current = null
     },
     [runWorkspace, showAnchor]

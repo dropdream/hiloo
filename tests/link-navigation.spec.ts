@@ -40,7 +40,7 @@ const shellCalls = (application: ElectronApplication) =>
 
 const filler = Array.from({ length: 80 }, (_, index) => `Párrafo de relleno ${index + 1}.`).join('\n\n')
 
-test('Ctrl+clic abre una nota relativa con espacios en la misma ventana; el clic simple solo edita', async ({ application, editorPage: page }, testInfo) => {
+test('Ctrl+clic abre una nota relativa con espacios en una pestaña nueva; el clic simple solo edita', async ({ application, editorPage: page }, testInfo) => {
   const root = testInfo.outputPath('enlaces-notas')
   const { open } = await notebook(application, page, root, {
     'Proyectos/origen.md': '[Clientes](../Dominio/lista%20de%20clientes.md) y [Otra](<../Dominio/otra nota.md>)\n',
@@ -144,7 +144,7 @@ test('un destino inexistente muestra un aviso y conserva la nota', async ({ appl
   expect((await page.evaluate(() => window.documents.current())).name).toBe('origen.md')
 })
 
-test('con cambios sin guardar se pregunta igual que al abrir otra nota', async ({ application, editorPage: page }, testInfo) => {
+test('un enlace abre la nota en otra pestaña sin preguntar y enfoca la pestaña si ya está abierta', async ({ application, editorPage: page }, testInfo) => {
   const root = testInfo.outputPath('enlaces-cambios')
   const { open } = await notebook(application, page, root, {
     'origen.md': '[Destino](destino.md) y texto\n',
@@ -152,18 +152,43 @@ test('con cambios sin guardar se pregunta igual que al abrir otra nota', async (
   })
   await open('origen.md')
   const editor = page.getByRole('textbox', { name: 'Documento Markdown', exact: true })
+  const tabs = page.getByRole('tablist', { name: 'Documentos abiertos' })
   await editor.press('Control+End')
   await page.keyboard.insertText(' cambio')
   await expect(page.getByRole('status')).toHaveText('Cambios sin guardar')
+  // Cancelar en un diálogo dejaría la nota de origen: no debe mostrarse ninguno.
   await chooseChanges(application, 2)
   await editor.getByRole('link', { name: 'Destino', exact: true }).click({ modifiers: ['Control'] })
-  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
-  await expect(editor).toContainText('cambio')
-  expect((await page.evaluate(() => window.documents.current())).name).toBe('origen.md')
-  await chooseChanges(application, 1)
-  await editor.getByRole('link', { name: 'Destino', exact: true }).click({ modifiers: ['Control'] })
   await expect(editor.locator('h1')).toHaveText('Destino')
+  await expect(tabs.getByRole('tab')).toHaveText(['origen.md', 'destino.md'])
+  await expect(tabs.getByRole('tab', { name: 'destino.md', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(tabs.getByRole('tab', { name: 'origen.md', exact: true })).toHaveAttribute('data-dirty', 'true')
   expect(await fs.readFile(join(root, 'origen.md'), 'utf8')).toBe('[Destino](destino.md) y texto\n')
+  await tabs.getByRole('tab', { name: 'origen.md', exact: true }).click()
+  await expect(editor).toContainText('cambio')
+  await expect(page.getByRole('status')).toHaveText('Cambios sin guardar')
+  await editor.getByRole('link', { name: 'Destino', exact: true }).click({ modifiers: ['Control'] })
+  await expect(tabs.getByRole('tab', { name: 'destino.md', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(tabs.getByRole('tab')).toHaveCount(2)
+})
+
+test('un resultado de enlace obsoleto no abre pestaña si ya se cambió de nota', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('enlaces-obsoletos')
+  const { open, snapshot } = await notebook(application, page, root, {
+    'origen.md': '[Destino](destino.md)\n',
+    'otra.md': '# Otra\n',
+    'destino.md': '# Destino\n'
+  })
+  await open('origen.md')
+  const origin = await page.evaluate(() => window.documents.current())
+  const target = join(root, 'destino.md')
+  const other = snapshot.notes.find((note) => note.name === 'otra.md')!
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), other.id)).toEqual({ status: 'ok' })
+  // El proceso principal rechaza abrir desde una nota que ya no es la activa.
+  expect((await page.evaluate(([id, path]) => window.documents.openNote(id, path, 'new-tab'), [origin.id, target])).status).toBe('error')
+  const tabs = page.getByRole('tablist', { name: 'Documentos abiertos' })
+  await expect(tabs.getByRole('tab')).toHaveText(['origen.md', 'otra.md'])
+  await expect(tabs.getByRole('tab', { name: 'otra.md', exact: true })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('el proceso principal ignora protocolos, rutas absolutas, UNC y salidas del cuaderno', async ({ application, editorPage: page }, testInfo) => {
