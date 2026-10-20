@@ -117,5 +117,12 @@ test('la salida JSON respeta el presupuesto y rechaza argumentos de consulta amb
   }
   expect(seen.size).toBe(8)
   await expect(command(database, 'search', 'evidencia', '--limit', '-1')).rejects.toThrow()
+  const absent = Array.from({ length: 16 }, (_, n) => `inexistentepalabralarga${String.fromCharCode(97 + n)}`).join(' ')
+  const metadata = await command<BrainSearchResult>(database, 'search', absent, '--max-chars', '512')
+  expect(metadata.output.length).toBeLessThanOrEqual(512)
+  expect(metadata.data.truncated).toBe(true)
+  expect((await command<BrainNotebook>(database, 'language', notebook.id, 'pt')).data.language).toBe('pt')
+  expect((await command<BrainCatalogResult>(database, 'catalog')).data.items[0].language).toBe('pt')
+  await expect(command(database, 'language', notebook.id, 'klingon')).rejects.toThrow()
   await expect(command(database, 'status', '--notebook', notebook.id)).rejects.toThrow()
 })

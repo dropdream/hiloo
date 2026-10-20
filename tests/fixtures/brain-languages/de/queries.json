@@ -1,0 +1,10 @@
+[
+  {"id":"de-1","query":"Wie oft war im Frühjahr eine Stornierung nötig?","gold":[{"path":"rechnungen.md","heading":"Stornierungen und Gutschriften"}],"note":"Stornierung (Singular) ↔ Stornierungen"},
+  {"id":"de-2","query":"Wann wird ein säumiger Kunde gemahnt?","gold":[{"path":"rechnungen.md","heading":"Mahnungen"}],"note":"gemahnt (Partizip) ↔ Mahnung / Mahnungen; Kunde ↔ Kunden"},
+  {"id":"de-3","query":"An welchen Tagen geht ein Paket raus?","gold":[{"path":"versand.md","heading":"Versandtage"}],"note":"Paket ↔ Pakete; Tagen ↔ Versandtage (Kompositum)"},
+  {"id":"de-4","query":"Wann muss neue Erde nachbestellt werden?","gold":[{"path":"lager.md","heading":"Nachbestellung von Substrat und Töpfen"}],"note":"nachbestellt (Partizip) ↔ Nachbestellung"},
+  {"id":"de-5","query":"Wie oft wird eine Kübelpflanze im Winter kontrolliert?","gold":[{"path":"lager.md","heading":"Überwinterung"}],"note":"Kübelpflanze ↔ Kübelpflanzen; Winter ↔ Überwinterung (Kompositum, Umlaut)"},
+  {"id":"de-6","query":"Wie früh muss ein Urlaubsantrag eingereicht werden?","gold":[{"path":"urlaub.md","heading":"Urlaubsanträge"}],"note":"Urlaubsantrag ↔ Urlaubsanträge (Umlautplural)"},
+  {"id":"de-7","query":"Bekomme ich Ersatz, wenn meine Staude trotz Pflege eingegangen ist?","gold":[{"path":"kundenservice.md","heading":"Reklamationen"}],"note":"Ersatz ↔ ersetzen; eingegangen ↔ geht … ein"},
+  {"id":"de-8","query":"Welcher Mehrwertsteuersatz gilt auf den Rechnungen für Pflanzen?","gold":[],"note":"keine Antwort: Rechnungen werden beschrieben, die Mehrwertsteuer nie"}
+]

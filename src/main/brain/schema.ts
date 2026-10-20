@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
 
-export const schemaVersion = 2
+export const schemaVersion = 3
 
 export function openDatabase(path: string): DatabaseSync {
   const db = new DatabaseSync(path, { timeout: 150, enableForeignKeyConstraints: true, allowExtension: false })
@@ -75,6 +75,16 @@ export function openDatabase(path: string): DatabaseSync {
         db.exec(`ALTER TABLE nodes ADD COLUMN links_partial INTEGER NOT NULL DEFAULT 0 CHECK(links_partial IN (0,1));
           UPDATE nodes SET source_hash=NULL WHERE kind='note';
           PRAGMA user_version = 2;`)
+      }
+      db.exec('COMMIT')
+    }
+    // El idioma solo cambia la consulta: no hace falta reindexar ni tocar identidades.
+    if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 3) {
+      db.exec('BEGIN IMMEDIATE')
+      if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 3) {
+        db.exec(`ALTER TABLE notebooks ADD COLUMN language TEXT NOT NULL DEFAULT 'auto';
+          ALTER TABLE notebooks ADD COLUMN detected_language TEXT;
+          PRAGMA user_version = 3;`)
       }
       db.exec('COMMIT')
     }

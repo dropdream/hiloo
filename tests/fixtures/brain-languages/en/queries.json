@@ -1,0 +1,10 @@
+[
+  {"id":"en-1","query":"How many invoices did we credit last quarter because of breakage?","gold":[{"path":"invoicing.md","heading":"Credit notes"}],"note":"credit (verb) ↔ credited; breakage ↔ breakages"},
+  {"id":"en-2","query":"When does the studio put an overdue account on hold?","gold":[{"path":"invoicing.md","heading":"Late payments"}],"note":"account (singular) ↔ accounts"},
+  {"id":"en-3","query":"How should a plate be positioned when we pack it?","gold":[{"path":"shipping.md","heading":"Packing ceramics"}],"note":"plate ↔ plates; pack ↔ packed / packing"},
+  {"id":"en-4","query":"At what point do we reorder another bag of clay?","gold":[{"path":"stock.md","heading":"Clay and glazes"}],"note":"bag ↔ bags"},
+  {"id":"en-5","query":"How far ahead must I request a holiday?","gold":[{"path":"leave.md","heading":"Booking holidays"}],"note":"request (verb) ↔ requests (noun plural); holiday ↔ holidays"},
+  {"id":"en-6","query":"What do we offer a customer when a mug shows crazing?","gold":[{"path":"support.md","heading":"Handling complaints"}],"note":"crazing ↔ crazed"},
+  {"id":"en-7","query":"How often is each photograph backed up?","gold":[{"path":"backups.md","heading":"What gets backed up"}],"note":"photograph ↔ photographs"},
+  {"id":"en-8","query":"What VAT rate do we charge on invoices to overseas customers?","gold":[],"note":"no answer: invoicing is covered but VAT is never mentioned"}
+]

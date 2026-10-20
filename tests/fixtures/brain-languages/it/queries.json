@@ -1,0 +1,10 @@
+[
+  {"id":"it-1","query":"Quante fatture sono state stornate l'anno scorso?","gold":[{"path":"fatturazione.md","heading":"Note di credito"}],"note":"stornate (participio femminile plurale) ↔ stornato / storna / storno"},
+  {"id":"it-2","query":"Cosa si chiede a un cliente che paga sempre in ritardo?","gold":[{"path":"fatturazione.md","heading":"Solleciti di pagamento"}],"note":"chiede ↔ chiediamo; paga ↔ pagano"},
+  {"id":"it-3","query":"Come si spedisce un manifesto senza piegarlo?","gold":[{"path":"spedizioni.md","heading":"Imballaggio degli stampati"}],"note":"manifesto ↔ manifesti; piegarlo ↔ piegati"},
+  {"id":"it-4","query":"Quando bisogna ordinare una risma di carta?","gold":[{"path":"magazzino.md","heading":"Scorte di carta"}],"note":"ordinare (infinito) ↔ ordina; risma ↔ risme"},
+  {"id":"it-5","query":"Entro quando si richiedono le ferie per l'estate?","gold":[{"path":"ferie.md","heading":"Richiesta delle ferie"}],"note":"richiedono (verbo) ↔ richiesta / richieste"},
+  {"id":"it-6","query":"Chi paga la ristampa se il cliente ha approvato una bozza sbagliata?","gold":[{"path":"assistenza.md","heading":"Bozze e approvazioni"}],"note":"approvato (participio) ↔ approva / approvazione / approvazioni"},
+  {"id":"it-7","query":"Ogni quanto viene ripristinato un vecchio lavoro?","gold":[{"path":"backup.md","heading":"Ripristino"}],"note":"ripristinato (participio) ↔ ripristiniamo / ripristino"},
+  {"id":"it-8","query":"Qual è l'aliquota IVA sulle fatture dei cataloghi?","gold":[],"note":"senza risposta: si parla di fatture ma mai di IVA"}
+]
