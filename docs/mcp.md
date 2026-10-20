@@ -12,8 +12,10 @@
 2. Ejecuta en PowerShell (cambia `<usuario>` por tu usuario de Windows; lo ves en `echo $env:USERNAME`):
 
    ```powershell
-   claude mcp add hiloo --scope user -e ELECTRON_RUN_AS_NODE=1 -- "C:\Users\<usuario>\AppData\Local\Programs\hiloo\hiloo.exe" "C:\Users\<usuario>\AppData\Local\Programs\hiloo\resources\app.asar\out\main\brain-mcp.js"
+   claude mcp add hiloo --scope user -e ELECTRON_RUN_AS_NODE=1 '--' "C:\Users\<usuario>\AppData\Local\Programs\hiloo\hiloo.exe" "C:\Users\<usuario>\AppData\Local\Programs\hiloo\resources\app.asar\out\main\brain-mcp.js"
    ```
+
+   El `'--'` va entre comillas a propósito: si instalaste Claude Code con npm, PowerShell ejecuta `claude.ps1`, que quita un `--` sin comillas, y el comando falla con `missing required argument 'commandOrUrl'`.
 
 3. Comprueba que `claude mcp list` muestra `hiloo: … ✔ Connected`.
 4. En una conversación nueva, pregunta algo que esté en tus notas, por ejemplo: «Busca en mis notas de hiloo qué decidimos sobre el presupuesto». La IA debería llamar a `catalog` y `search` y citar la nota.
@@ -54,7 +56,7 @@ En JSON, cada `\` de la ruta se escribe `\\`. Si el archivo ya tiene otros servi
 Si trabajas con el código de hiloo, ejecuta `npm ci` y `npm run build` una vez. `scripts/brain-mcp.cjs` lanza el servidor compilado con el Electron del repositorio. En este caso sí hace falta Node.js.
 
 ```powershell
-claude mcp add hiloo --scope user -- node "C:\ruta\a\hiloo\scripts\brain-mcp.cjs"
+claude mcp add hiloo --scope user '--' node "C:\ruta\a\hiloo\scripts\brain-mcp.cjs"
 ```
 
 ```json
@@ -75,7 +77,7 @@ Por defecto se lee la base de la app, `%APPDATA%\hiloo\brain.sqlite`. Para usar 
 ```powershell
 node scripts/brain.cjs register "C:\ruta\a\hiloo\docs\demo\Proyecto de ejemplo" --db C:\temp\brain.sqlite
 node scripts/brain.cjs sync <id-devuelto> --db C:\temp\brain.sqlite
-claude mcp add hiloo-pruebas -e HILOO_BRAIN_DB=C:\temp\brain.sqlite -- node "C:\ruta\a\hiloo\scripts\brain-mcp.cjs"
+claude mcp add hiloo-pruebas -e HILOO_BRAIN_DB=C:\temp\brain.sqlite '--' node "C:\ruta\a\hiloo\scripts\brain-mcp.cjs"
 ```
 
 ## Si algo falla
