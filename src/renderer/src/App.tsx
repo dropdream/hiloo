@@ -37,6 +37,15 @@ type WorkspaceAction =
   | { type: 'open' | 'recent' | 'recent-document'; id: string }
   | { type: 'create'; parentId: string; name: string; kind: 'folder' | 'note' }
   | { type: 'index'; id: string; usage: NotebookIndexUsage }
+  | { type: 'note'; path: string; from: string }
+
+// Punto de unión con las pestañas: 'new-tab' abrirá o enfocará la pestaña de la nota.
+export interface OpenNoteOptions {
+  target: 'new-tab' | 'current'
+  anchor?: string | null
+  // Documento desde el que se pidió; si ya no es el actual, no se abre.
+  from: string
+}
 
 export function App() {
   const [pageSettings, setPageSettings] = useState<PageSettings>(defaultPageSettings)
@@ -56,6 +65,7 @@ export function App() {
   const [zoom, setZoom] = useState(100)
   const [fitZoom, setFitZoom] = useState(false)
   const workspaceArea = useRef<HTMLElement>(null)
+  const pendingAnchor = useRef<{ from: string; anchor: string } | null>(null)
   const [printStyle, setPrintStyle] = useState('')
   const [printStyleOpen, setPrintStyleOpen] = useState(false)
   const [indexPrompt, setIndexPrompt] = useState<{ id: string; name: string } | null>(null)
@@ -94,6 +104,10 @@ export function App() {
     editorReady,
     changeSource
   } = session
+  const documentId = useRef(document?.id)
+  documentId.current = document?.id
+  const readyRef = useRef(ready)
+  readyRef.current = ready
   const { printPreview, printing, print, closePrintPreview, confirmPrint } = useDocumentPrint(session, pageSettings)
 
   useEffect(() => {
@@ -261,6 +275,9 @@ export function App() {
           case 'open':
             result = await window.workspace.open(request.id)
             break
+          case 'note':
+            result = await window.documents.openNote(request.from, request.path)
+            break
           case 'recent':
             result = await window.workspace.openRecent(request.id)
             break
@@ -286,6 +303,7 @@ export function App() {
         if (result.status !== 'ok') return false
         const opensNote =
           action === 'open' ||
+          action === 'note' ||
           action === 'recent-document' ||
           action === 'index' ||
           (request.type === 'create' && request.kind === 'note')
@@ -325,6 +343,47 @@ export function App() {
       }
     },
     [indexPrompt, runWorkspace]
+  )
+
+  const showAnchor = useCallback(() => {
+    const pending = pendingAnchor.current
+    if (!pending || pending.from === documentId.current || !readyRef.current || !controller.current) return
+    pendingAnchor.current = null
+    if (!controller.current.scrollToAnchor(pending.anchor)) setError(`No se encontró la sección «${pending.anchor}» en la nota.`)
+  }, [controller, setError])
+
+  useEffect(showAnchor, [showAnchor, ready, document?.id])
+
+  // Única entrada para abrir notas desde enlaces. Sin pestañas todavía, 'new-tab' abre en la vista actual.
+  const openNote = useCallback(
+    async (path: string, options: OpenNoteOptions) => {
+      const { from } = options
+      if (from !== documentId.current) return
+      pendingAnchor.current = options.anchor ? { from, anchor: options.anchor } : null
+      if (await runWorkspace({ type: 'note', path, from })) showAnchor()
+      else pendingAnchor.current = null
+    },
+    [runWorkspace, showAnchor]
+  )
+
+  const followLink = useCallback(
+    async (href: string) => {
+      const id = documentId.current
+      if (!id || locked.current) return
+      try {
+        const result = await window.documents.followLink(id, href)
+        // Otra nota abierta mientras se resolvía: el resultado ya no aplica.
+        if (id !== documentId.current) return
+        if (result.status === 'error') setError(result.message)
+        else if (result.status === 'anchor') {
+          if (result.anchor && !controller.current?.scrollToAnchor(result.anchor))
+            setError(`No se encontró la sección «${result.anchor}» en la nota.`)
+        } else if (result.status === 'note') await openNote(result.path, { target: 'new-tab', anchor: result.anchor, from: id })
+      } catch {
+        setError('No se pudo abrir el enlace.')
+      }
+    },
+    [controller, locked, openNote, setError]
   )
 
   const closeIndexPrompt = useCallback(() => setIndexPrompt(null), [])
@@ -585,6 +644,7 @@ export function App() {
                       onChange={changed}
                       onSelection={setSelection}
                       onError={setError}
+                      onLink={followLink}
                     />
                   </div>
                 </div>
