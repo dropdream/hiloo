@@ -10,6 +10,7 @@ import { liftListItem, wrapInList } from '@milkdown/kit/prose/schema-list'
 import { $prose } from '@milkdown/kit/utils'
 import { maxDocumentBytes } from '../../shared/documents'
 import { markdownProblem, markdownSignature } from '../../shared/markdown'
+import { headingSlug, headingSlugs } from '../../shared/markdown-anchors'
 import {
   editTable,
   insertTable,
@@ -72,6 +73,7 @@ export interface EditorController {
   removeLink(): boolean
   setImage(value: ImageValue): boolean
   removeImage(): boolean
+  scrollToAnchor(anchor: string): boolean
 }
 
 function selectionState(state: EditorState): SelectionState {
@@ -105,6 +107,7 @@ interface Props {
   onChange(markdown: string, clean: boolean): void
   onSelection(state: SelectionState): void
   onError(message: string): void
+  onLink(href: string): void
 }
 
 export function MarkdownEditor(props: Props) {
@@ -175,12 +178,25 @@ export function MarkdownEditor(props: Props) {
             () => editable,
             () => callbacks.current.documentId
           ),
+          // En edición se sigue con Ctrl+clic; sin edición basta el clic.
           handleClick: (_view, _position, event) => {
-            if ((event.target as Element).closest('a')) {
-              event.preventDefault()
-              return true
+            const link = (event.target as Element).closest('a')
+            if (!link) return false
+            event.preventDefault()
+            const href = link.getAttribute('href')
+            if (href && event.button === 0 && (!editable || event.ctrlKey || event.metaKey)) callbacks.current.onLink(href)
+            return true
+          },
+          handleDOMEvents: {
+            click: (_view, event) => {
+              if ((event.target as Element).closest('a')) event.preventDefault()
+              return false
+            },
+            mouseover: (_view, event) => {
+              const link = (event.target as Element).closest('a')
+              host.title = link ? (editable ? 'Ctrl+clic para abrir' : 'Clic para abrir') : ''
+              return false
             }
-            return false
           },
           handleDrop: (_view, event) => {
             event.preventDefault()
@@ -293,6 +309,24 @@ export function MarkdownEditor(props: Props) {
           removeLink: () => run(removeLink, 'Selecciona el enlace que quieres quitar.'),
           setImage: (value) => run(setImage(value), 'No se pudo insertar la imagen. Usa una dirección HTTP(S) o una ruta relativa.'),
           removeImage: () => run(removeImage, 'Selecciona la imagen que quieres quitar.'),
+          scrollToAnchor: (anchor) => {
+            const headings: { position: number; text: string }[] = []
+            view.state.doc.descendants((node, position) => {
+              if (node.type.name === 'heading') headings.push({ position, text: node.textContent })
+              return node.isBlock
+            })
+            const wanted = anchor.toLowerCase()
+            const slugs = headingSlugs(headings.map((heading) => heading.text))
+            let index = slugs.indexOf(wanted)
+            if (index < 0) index = slugs.indexOf(headingSlug(anchor))
+            const heading = headings[index]
+            const element = heading && view.nodeDOM(heading.position)
+            if (!(element instanceof HTMLElement)) return false
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, heading.position + 1)))
+            view.focus()
+            element.scrollIntoView({ block: 'start' })
+            return true
+          },
           format: (action, level) => {
             if (!editable) return
             if (view.state.selection instanceof AllSelection) {

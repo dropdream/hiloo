@@ -127,6 +127,7 @@
   text-underline-offset: 3px;
   cursor: text;
 }
+.surface :global(.hiloo-document[contenteditable='false'] a) { cursor: pointer; }
 .surface :global(.hiloo-document code) {
   font:
     0.87em/1.5 Consolas,

@@ -13,6 +13,7 @@ import { validatePageSettings, type PageSettings } from '../shared/printing'
 import { previewDocument, printDocument } from './printing'
 import { createRecentHandlers } from './recent-handlers'
 import { createImageHandler } from './document-images'
+import { createLinkHandlers } from './document-links'
 import { read, matches, samePath, validatePath, writeDocument, type DocumentSession } from './document-io'
 import { createWorkspaceHandlers } from './workspace-handlers'
 import { attachBrain } from './brain-service'
@@ -100,6 +101,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   )
   const workspaces = createWorkspaceHandlers(window, documents, brain, recent)
   const imageSource = createImageHandler(documents.current)
+  const links = createLinkHandlers(documents, () => workspaces.current())
   const setBusy = (value: boolean) => {
     busy = value
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('document:busy', value)
@@ -316,6 +318,8 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   handle('document:recent', recent.listDocuments)
   handle('document:open-recent', recent.openDocument)
   handle('document:image-source', imageSource)
+  handle('document:follow-link', links.followLink)
+  handle('document:open-note', links.openNote)
   handle('document:flushed', (id, error) => {
     if (!pendingFlush || id !== pendingFlush.id || (error !== null && typeof error !== 'string'))
       return { status: 'error', message: 'Confirmación de edición no válida.' }

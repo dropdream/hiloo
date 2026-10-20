@@ -20,6 +20,8 @@ const api: DocumentBridge = {
   print: (settings, snapshot) => ipcRenderer.invoke('document:print', settings, snapshot),
   update: (id, content) => ipcRenderer.invoke('document:update', id, content),
   imageSource: (id, source) => ipcRenderer.invoke('document:image-source', id, source),
+  followLink: (id, href) => ipcRenderer.invoke('document:follow-link', id, href),
+  openNote: (id, path) => ipcRenderer.invoke('document:open-note', id, path),
   onDocument: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, document: DocumentSnapshot) => callback(document)
     ipcRenderer.on('document:changed', listener)
