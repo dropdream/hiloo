@@ -214,6 +214,9 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     }
     validatePath(target)
     const isCurrent = document.path !== null && samePath(target, document.path)
+    // Dos pestañas con el mismo archivo se sobrescribirían entre sí.
+    if (!isCurrent && tabs.some((session) => session !== document && session.path !== null && samePath(session.path, target)))
+      throw new Error(`${basename(target)} ya está abierto en otra pestaña. Ciérrala o elige otro nombre.`)
     const workspace = workspaces.current()
     const owner = isCurrent && workspace && withinWorkspace(workspace.root, target) ? workspace : null
     if (owner) await validateWorkspaceNote(owner, target)
@@ -345,6 +348,8 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     target: OpenTarget = 'current'
   ): Promise<DocumentResult> {
     if (await focusPath(path)) return { status: 'ok' }
+    // La nota ya está en la pestaña activa: no se duplica.
+    if (target === 'new-tab' && document.path !== null && samePath(document.path, path)) return { status: 'ok' }
     const next = await loadDocument(path, owner)
     if (target === 'current' && document.revision !== revision)
       throw new Error(
@@ -362,6 +367,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   }
 
   async function restoreTabs(): Promise<void> {
+    const initial = document
     const saved = await openTabs.load()
     const restored: DocumentSession[] = []
     let active: DocumentSession | undefined
@@ -376,12 +382,21 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       }
     }
     tabsRestored = true
-    if (!restored.length || window.isDestroyed()) return
-    // Si ya se empezó a escribir en el documento inicial, se conserva.
-    tabs = pristine(document) && tabs.length === 1 ? restored : [...tabs, ...restored]
-    document = active ?? restored[0]
+    // Lo que el usuario abrió mientras tanto no se duplica.
+    const pending = restored.filter((session) => !tabs.some((open) => open.path !== null && samePath(open.path, session.path!)))
+    if (window.isDestroyed()) return
+    if (!pending.length) {
+      emit()
+      return
+    }
+    // Si el usuario no ha tocado nada, se restaura tal cual; si no, las pestañas se añaden sin quitarle el foco.
+    const untouched = !busy && tabs.length === 1 && document === initial && pristine(document)
+    if (untouched) {
+      tabs = pending
+      document = active && pending.includes(active) ? active : pending[0]
+    } else tabs = [...tabs, ...pending]
     emit()
-    await workspaces.followDocument()
+    if (untouched) await workspaces.followDocument()
   }
 
   handle('workspace:recent', recent.listWorkspaces)

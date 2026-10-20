@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import type { ElectronApplication, Page } from '@playwright/test'
-import { test, expect, chooseOpen, chooseChanges, launchApplication, closeApplication } from './fixtures'
+import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { test, expect, chooseOpen, chooseSave, chooseChanges, launchApplication, closeApplication } from './fixtures'
 
 async function notebook(application: ElectronApplication, page: Page, root: string, notes: Record<string, string>) {
   await fs.mkdir(root, { recursive: true })
@@ -240,4 +240,87 @@ test('en modo Markdown cada pestaña muestra y conserva su propio código', asyn
   await expect(page.getByRole('status')).toHaveText('Cambios sin guardar')
   await page.getByRole('button', { name: 'Vista impresión', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Documento Markdown' })).toContainText('Escrito en código.')
+})
+
+test('abrir en nueva pestaña la nota activa no la duplica', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('misma-nota')
+  const snapshot = await notebook(application, page, root, { 'a.md': '# A\n', 'b.md': '# B\n' })
+  expect(await page.evaluate((id) => window.workspace.open(id), noteId(snapshot, 'a.md'))).toEqual({ status: 'ok' })
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), noteId(snapshot, 'b.md'))).toEqual({ status: 'ok' })
+  const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
+  await editor.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(' local')
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), noteId(snapshot, 'b.md'))).toEqual({ status: 'ok' })
+  const tabs = await page.evaluate(() => window.documents.tabs())
+  expect(tabs.tabs.map((tab) => [tab.name, tab.dirty])).toEqual([['a.md', false], ['b.md', true]])
+  await expect(editor).toHaveText('B local')
+})
+
+test('Guardar como sobre un archivo abierto en otra pestaña se rechaza sin tocarlo', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('guardar-como-abierto')
+  const snapshot = await notebook(application, page, root, { 'a.md': '# A\n', 'b.md': '# B\n' })
+  expect(await page.evaluate((id) => window.workspace.open(id), noteId(snapshot, 'a.md'))).toEqual({ status: 'ok' })
+  expect(await page.evaluate((id) => window.workspace.open(id, 'new-tab'), noteId(snapshot, 'b.md'))).toEqual({ status: 'ok' })
+  await chooseSave(application, join(root, 'a.md'))
+  // Si llegara a preguntar por reemplazar, la respuesta sería Reemplazar.
+  await chooseChanges(application, 0)
+  const result = await page.evaluate(() => window.documents.save(true))
+  expect(result).toEqual({ status: 'error', message: 'a.md ya está abierto en otra pestaña. Ciérrala o elige otro nombre.' })
+  expect(await fs.readFile(join(root, 'a.md'), 'utf8')).toBe('# A\n')
+  const tabs = await page.evaluate(() => window.documents.tabs())
+  expect(tabs.tabs.map((tab) => tab.path)).toEqual([join(root, 'a.md'), join(root, 'b.md')])
+})
+
+test('la restauración tardía no quita el foco a la nota que el usuario ya abrió', async ({}, testInfo) => {
+  test.skip(testInfo.project.name !== 'local', 'El ejecutable empaquetado no admite --require para retener la lectura.')
+  // Carpetas separadas: el cuaderno de mia.md no debe leer lenta.md al escanearse.
+  const restoredRoot = testInfo.outputPath('restauracion-tardia', 'restauradas')
+  const userRoot = testInfo.outputPath('restauracion-tardia', 'usuario')
+  await fs.mkdir(restoredRoot, { recursive: true })
+  await fs.mkdir(userRoot, { recursive: true })
+  const first = join(restoredRoot, 'a.md')
+  const slow = join(restoredRoot, 'lenta.md')
+  const mine = join(userRoot, 'mia.md')
+  await fs.writeFile(first, '# A\n')
+  await fs.writeFile(slow, '# Lenta\n')
+  await fs.writeFile(mine, '# Mía\n')
+  const profile = testInfo.outputPath('.profile')
+  await fs.mkdir(profile, { recursive: true })
+  await fs.writeFile(join(profile, 'open-tabs.json'), JSON.stringify({ paths: [first, slow], active: 1 }))
+  // Retiene la lectura de lenta.md hasta que exista la señal: la restauración sigue en curso.
+  const gate = testInfo.outputPath('liberar')
+  const hook = testInfo.outputPath('retener-lectura.cjs')
+  await fs.writeFile(hook, `const fs = require('node:fs')
+const original = fs.promises.lstat
+fs.promises.lstat = async function (path, ...rest) {
+  if (String(path).endsWith('lenta.md')) while (!fs.existsSync(${JSON.stringify(gate)})) await new Promise((resolve) => setTimeout(resolve, 50))
+  return original.call(this, path, ...rest)
+}
+`)
+  const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+  delete env.ELECTRON_RUN_AS_NODE
+  delete env.ELECTRON_RENDERER_URL
+  const application = await electron.launch({ args: ['--require', hook, '.', `--user-data-dir=${profile}`], env })
+  try {
+    await application.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 2, checkboxChecked: false })
+    })
+    const page = await application.firstWindow()
+    await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled({ timeout: 30_000 })
+    await chooseOpen(application, mine)
+    expect(await page.evaluate(() => window.documents.open())).toEqual({ status: 'ok' })
+    const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
+    await editor.click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' editada')
+    const tabs = page.getByRole('tablist', { name: 'Documentos abiertos' })
+    await expect(tabs.getByRole('tab')).toHaveText(['mia.md'])
+    await fs.writeFile(gate, '')
+    await expect(tabs.getByRole('tab')).toHaveText(['mia.md', 'a.md', 'lenta.md'])
+    await expect(tabs.getByRole('tab', { name: 'mia.md', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(editor).toHaveText('Mía editada')
+  } finally {
+    await closeApplication(application)
+  }
 })
