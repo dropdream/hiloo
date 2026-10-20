@@ -1,0 +1,10 @@
+[
+  {"id":"pt-1","query":"Até quando dá para cancelar uma nota emitida errada?","gold":[{"path":"faturamento.md","heading":"Cancelamentos"}],"note":"cancelar (infinitivo) ↔ cancelada / cancelamentos"},
+  {"id":"pt-2","query":"O que acontece se um cliente atrasa o boleto duas vezes?","gold":[{"path":"faturamento.md","heading":"Prazos de pagamento"}],"note":"atrasa (verbo) ↔ atrasos (substantivo plural)"},
+  {"id":"pt-3","query":"Como é embalado um bolo para a entrega?","gold":[{"path":"entregas.md","heading":"Embalagens"}],"note":"embalado (particípio) ↔ embalagens; bolo ↔ bolos"},
+  {"id":"pt-4","query":"O que se faz com um produto que venceu na câmara fria?","gold":[{"path":"estoque.md","heading":"Refrigerados"}],"note":"venceu ↔ vencidos; produto ↔ produtos"},
+  {"id":"pt-5","query":"Posso dividir as minhas férias em vários períodos?","gold":[{"path":"ferias.md","heading":"Pedido de férias"}],"note":"dividir (infinitivo) ↔ divididos"},
+  {"id":"pt-6","query":"Com quanto tempo devo encomendar um bolo de aniversário?","gold":[{"path":"atendimento.md","heading":"Encomendas especiais"}],"note":"encomendar ↔ encomendados / encomendas; bolo ↔ bolos"},
+  {"id":"pt-7","query":"Quem verifica se a cópia da semana foi concluída?","gold":[{"path":"backup.md","heading":"Rotina das cópias"}],"note":"cópia ↔ cópias; concluída ↔ concluídas"},
+  {"id":"pt-8","query":"Qual é a alíquota de imposto destacada nas notas fiscais?","gold":[],"note":"sem resposta: fala-se de notas fiscais, mas não de impostos"}
+]
