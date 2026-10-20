@@ -22,7 +22,7 @@ Los enlaces se distinguen como `hierarchy` (pertenencia), `link` (referencia Mar
 
 La aplicación guarda `brain.sqlite` dentro de su directorio de datos de Electron. En una instalación Windows habitual, corresponde a `%APPDATA%/hiloo/brain.sqlite`. La CLI permite seleccionar otra base con `--db` o `HILOO_BRAIN_DB`; ese cambio afecta a la CLI, no cambia el perfil abierto por la aplicación.
 
-El esquema contiene `notebooks`, `nodes`, `chunks`, `chunks_fts`, `links`, `manual_links` y `jobs`. Los índices relacionales cubren identidad y ruta, cuaderno, padre, origen y destino de enlaces. FTS5 indexa título, encabezado, ruta y texto por fragmentos; la búsqueda usa relevancia BM25. El tokenizador admite búsquedas sin distinguir tildes y mayúsculas; no implementa equivalencia semántica de sinónimos.
+El esquema contiene `notebooks`, `nodes`, `chunks`, `chunks_fts`, `links`, `manual_links` y `jobs`. Los índices relacionales cubren identidad y ruta, cuaderno, padre, origen y destino de enlaces. FTS5 indexa título, encabezado, ruta y texto por fragmentos; la búsqueda usa relevancia BM25. El tokenizador admite búsquedas sin distinguir tildes y mayúsculas; no implementa equivalencia semántica de sinónimos. La construcción de la consulta se describe en [Búsqueda e idiomas](#búsqueda-e-idiomas).
 
 Las secciones se dividen en fragmentos de aproximadamente 2.400 caracteres, sin solapamiento. Los resultados conservan la nota de origen, el encabezado, la versión del contenido y la fecha de indexación. La lectura comprueba el archivo antes de devolver texto; `stale` o `unavailable` impiden tratar contenido antiguo como vigente.
 
@@ -37,6 +37,7 @@ node scripts/brain.cjs --help
 node scripts/brain.cjs register "D:\Notas\Proyecto"
 node scripts/brain.cjs catalog
 node scripts/brain.cjs sync <notebook-id>
+node scripts/brain.cjs language <notebook-id> auto
 node scripts/brain.cjs search "decisión almacenamiento" --notebook <notebook-id> --max-chars 6000
 node scripts/brain.cjs read <chunk-id> --expected-hash <chunk-id>=<sha256>
 node scripts/brain.cjs related <node-id> --direction out --type hierarchy
@@ -53,6 +54,31 @@ La [skill hiloo-notes](../skills/hiloo-notes/SKILL.md) comienza con `catalog`: d
 
 La CLI modifica el catálogo, los índices y las relaciones manuales. No incluye un comando para escribir notas. La IA puede usar sus herramientas de archivos para crear o editar Markdown, respetando versiones y cambios concurrentes, y después ejecutar `sync`. El formato admitido y los conflictos de guardado se describen en [estilo Markdown](estilo-markdown.md).
 
+## Búsqueda e idiomas
+
+La búsqueda acepta lenguaje natural o palabras clave. La consulta se construye así:
+
+1. Se extraen las palabras (letras, marcas, números y `_`), en minúsculas y normalizadas a NFC. Todo lo demás se ignora: comillas, `-`, `:`, `*`, `^`, paréntesis o `NEAR(` del usuario no llegan a FTS5 como sintaxis. Cada término va entre comillas.
+2. Se descartan las palabras vacías de los **idiomas activos**. Si todas son vacías, se conservan. Se eliminan los repetidos y quedan como máximo 16 términos.
+3. Cada palabra busca su forma exacta y, como prefijo, su raíz Snowball en los idiomas activos (`"facturas" OR "factur"*`). Las raíces de menos de 4 letras se descartan. Si no queda ninguna raíz y la palabra tiene 6 letras o más, se usa como prefijo la palabra sin sus 2 últimas letras (mínimo 5). Los identificadores con números o `_` solo buscan la forma exacta.
+4. Los términos se unen con `OR` y BM25 ordena los fragmentos (pesos: título 5, encabezado 3, ruta 2, cuerpo 1). Los fragmentos que contienen más términos, y los más raros, suben solos; un modo «AND primero» dio el mismo orden en la evaluación. Se devuelven como máximo 2 fragmentos por nota.
+
+Idiomas admitidos: español, inglés, portugués, francés, alemán e italiano. Las palabras vacías están en una lista por idioma en `src/main/brain/languages/<código>.ts`; la lematización usa los algoritmos Snowball en JavaScript puro de `@orama/stemmers`.
+
+**Precedencia de idiomas.** Los idiomas activos de una búsqueda son:
+
+1. El idioma de cada cuaderno del alcance: el fijado con `language <id> <código>` o, si es `auto` (predeterminado), el detectado en la última sincronización. Sin `--notebook` ni `--ancestor`, el alcance son todos los cuadernos registrados.
+2. Más el idioma de la pregunta, si se detecta.
+3. Si no hay ninguno de los anteriores, basta una sola palabra vacía en la pregunta para elegir su idioma. Si tampoco, no se descarta ninguna palabra y solo se aplica el prefijo de respaldo.
+
+La detección cuenta palabras vacías de cada idioma: en el cuaderno, sobre una muestra de hasta 200 fragmentos (exige al menos 5 aciertos); en la pregunta, al menos 2. Un empate no decide. Como solo se descartan las palabras vacías de los idiomas activos, un texto mezclado conserva los términos útiles de otro idioma: en un cuaderno en español, `die` o `come` siguen siendo términos de búsqueda.
+
+**Respuesta.** Además de `items`, `truncated` e `indexedAt`, la búsqueda devuelve `terms` (términos buscados) y `missingTerms` (los que no aparecen en ninguna nota del alcance). Cada resultado incluye `matchedTerms` (los términos que contiene). Con OR casi siempre hay resultados: un término clave en `missingTerms`, o resultados que solo contienen palabras genéricas, indican que la respuesta probablemente no está. El extracto (`excerpt`, hasta 350 caracteres) es la ventana del fragmento con más coincidencias.
+
+**Lo que no hace.** No hay sinónimos ni equivalencias de dominio (por ejemplo, «crédito» y «cuenta corriente»). Se evaluaron y descartaron dos alternativas: lematizar el índice (columna con raíces, requiere reindexar) recuperó menos que la raíz como prefijo en la consulta, y el tokenizador `trigram` ocupó 2,5 veces más sin mejorar. El idioma no cambia el índice: el esquema 3 añade `notebooks.language` y `notebooks.detected_language`, y conserva catálogo, identificadores, fragmentos y relaciones manuales. Un índice migrado detecta el idioma en la siguiente sincronización.
+
+**Motores de búsqueda.** `BrainIndex` delega el orden de los fragmentos en un motor (`SearchEngine`, en `src/main/brain/engine.ts`). El motor recibe la consulta, los idiomas activos y el alcance, y devuelve los `rowid` de `chunks` ordenados; opcionalmente explica términos encontrados, ausentes y extractos. Límites, presupuesto de caracteres, máximo por nota y formato JSON quedan en `BrainIndex`, así que un motor nuevo no cambia la CLI ni su contrato. El motor predeterminado es FTS5 (`fts-engine.ts`). Un motor semántico (embeddings) podría instalarse como descarga opcional y aparte, y pasarse al construir `BrainIndex`; no está implementado.
+
 ## Sincronización y límites
 
 Elegir explícitamente un cuaderno lo registra y sincroniza. Abrir o guardar una nota y actualizar el cuaderno sincronizan su raíz si ya estaba registrada. Abrir documentos sueltos no registra automáticamente sus carpetas. Los cambios externos requieren `sync` o una actualización desde hiloo; no hay vigilancia permanente del disco en esta versión.
@@ -61,7 +87,7 @@ El motor reutiliza los fragmentos de archivos sin cambios mediante hashes y actu
 
 Cada exploración admite hasta 1.000 notas, 10.000 entradas, 16 niveles y 32 MiB de contenido; cada nota admite hasta 2 MiB. Se conservan hasta 256 destinos de enlace por nota, con aviso si se supera ese límite. Las escrituras SQLite se agrupan en transacciones cortas y las exploraciones ceden ejecución entre documentos. Los trabajos tienen propietario y señal de actividad para impedir que dos procesos indexen simultáneamente el mismo cuaderno y permitir retomar un trabajo interrumpido.
 
-El estado de enlaces truncados se conserva por nota: sincronizar sin cambios o reiniciar no elimina el aviso ni convierte el índice parcial en completo. El esquema 2 migra automáticamente los índices anteriores, conserva sus identidades y relaciones manuales y vuelve a analizar las notas en la siguiente sincronización para calcular ese estado.
+El estado de enlaces truncados se conserva por nota: sincronizar sin cambios o reiniciar no elimina el aviso ni convierte el índice parcial en completo. El esquema 2 migra automáticamente los índices anteriores, conserva sus identidades y relaciones manuales y vuelve a analizar las notas en la siguiente sincronización para calcular ese estado. El esquema 3 solo añade el idioma del cuaderno.
 
 Los cuadernos inaccesibles y las exploraciones parciales se señalan expresamente. Una exploración incompleta no equivale a que los archivos hayan sido borrados. Los nodos desaparecidos conservan identidad para no destruir las relaciones manuales; un renombrado externo no garantiza conservar el identificador anterior.
 
