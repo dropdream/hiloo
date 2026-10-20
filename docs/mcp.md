@@ -87,7 +87,7 @@ claude mcp add hiloo-pruebas -e HILOO_BRAIN_DB=C:\temp\brain.sqlite -- node "C:\
 | La IA responde «No existe la base de Cerebro» | Todavía no has abierto ningún cuaderno en hiloo, o `HILOO_BRAIN_DB` apunta a otra ruta. |
 | La IA responde «No hay cuadernos registrados» | La base existe pero está vacía: abre una carpeta como cuaderno en hiloo. |
 | La IA no encuentra algo que acabas de escribir | El índice solo ve notas guardadas. hiloo actualiza el índice al guardar o abrir una nota. Si editaste fuera de hiloo, pide a la IA que ejecute `sync` del cuaderno. |
-| «El índice usa un esquema anterior» | La base es de una versión anterior de hiloo. Ábrela con hiloo o pide `sync`, que la actualiza. |
+| «El índice usa un esquema anterior» | La base es de una versión anterior de hiloo. Abre un cuaderno en hiloo: la app actualiza la base. Desde el MCP no se puede, porque `catalog` también falla. |
 
 ## Herramientas
 

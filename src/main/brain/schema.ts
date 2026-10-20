@@ -10,7 +10,7 @@ export function openDatabase(path: string, options: { readOnly?: boolean } = {})
       db.exec('PRAGMA busy_timeout = 150; PRAGMA query_only = ON')
       const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
       if (version > schemaVersion) throw new Error('El índice pertenece a una versión más reciente de hiloo.')
-      if (version < schemaVersion) throw new Error('El índice usa un esquema anterior. Abre hiloo o sincroniza un cuaderno para actualizarlo.')
+      if (version < schemaVersion) throw new Error('El índice usa un esquema anterior. Abre un cuaderno en hiloo para actualizarlo.')
       return db
     }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 150; PRAGMA cache_size = -4096; PRAGMA wal_autocheckpoint = 1000')

@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { DatabaseSync } from 'node:sqlite'
 import { promises as fs } from 'node:fs'
 import { join, resolve, toNamespacedPath } from 'node:path'
 import { promisify } from 'node:util'
@@ -253,5 +254,21 @@ test('el MCP recorta los avisos de sync para que la respuesta quepa', async ({},
   } finally {
     await client.close()
     await icacls(toNamespacedPath(base), '/reset', '/T', '/Q')
+  }
+})
+
+test('el MCP pide abrir un cuaderno en hiloo si la base tiene un esquema anterior', async ({}, testInfo) => {
+  const { database } = await prepare(testInfo.outputPath('mcp-schema'))
+  const db = new DatabaseSync(database)
+  db.exec('PRAGMA user_version = 2')
+  db.close()
+  const client = await connect(testInfo.project.name, { HILOO_BRAIN_DB: database })
+  try {
+    const result = await call<{ error: string }>(client, 'catalog', {})
+    expect(result.isError).toBe(true)
+    expect(result.data.error).toContain('Abre un cuaderno en hiloo')
+    expect(result.data.error).not.toMatch(/sincroniza/i)
+  } finally {
+    await client.close()
   }
 })
