@@ -20,6 +20,7 @@ export function useDocumentSession(onNewDocument: () => void) {
   const modeRef = useRef(mode)
   const sourceRef = useRef('')
   const controller = useRef<EditorController | null>(null)
+  const mounted = useRef(false)
   const current = useRef<DocumentSnapshot | null>(null)
   const locked = useRef(false)
   const printSession = useRef(false)
@@ -174,9 +175,13 @@ export function useDocumentSession(onNewDocument: () => void) {
   }, [])
 
   const editorReady = useCallback((next: EditorController) => {
+    // Al cambiar de documento el editor se reutiliza; el foco lo decide quien abrió.
+    const first = !mounted.current
+    mounted.current = true
     controller.current = next
     next.setEditable(!locked.current)
     setReady(next.visualReady())
+    if (!first) return
     if (modeRef.current === 'visual') next.focus()
     else sourceInput.current?.focus()
   }, [])

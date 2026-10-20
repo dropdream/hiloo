@@ -13,7 +13,7 @@ export function createRecentHandlers(
 ) {
   const recentWorkspaces = new RecentPaths(join(app.getPath('userData'), 'recent-workspaces.json'))
   const recentDocuments = new RecentPaths(join(app.getPath('userData'), 'recent-documents.json'))
-  const { operation, confirmChanges, openPath } = documents
+  const { operation, confirmChanges, confirmAll, focusPath, openPath } = documents
 
   return {
     rememberWorkspace: (path: string) => recentWorkspaces.remember(path),
@@ -38,6 +38,7 @@ export function createRecentHandlers(
       const entry = await recentDocuments.find(id)
       if (!entry) return { status: 'error', message: 'El documento seleccionado no pertenece a los recientes.' }
       return operation(async () => {
+        if (await focusPath(entry.path)) return { status: 'ok' }
         if (!(await confirmChanges())) return { status: 'cancelled' }
         try {
           return await openPath(entry.path, documents.current().revision)
@@ -57,7 +58,7 @@ export function createRecentHandlers(
       const entry = await recentWorkspaces.find(id)
       if (!entry) return { status: 'error', message: 'El cuaderno seleccionado no pertenece a los recientes.' }
       return operation(async () => {
-        if (!(await confirmChanges())) return { status: 'cancelled' }
+        if (!(await confirmAll())) return { status: 'cancelled' }
         try {
           return await openWorkspace(entry.path, documents.current().revision)
         } catch (error) {

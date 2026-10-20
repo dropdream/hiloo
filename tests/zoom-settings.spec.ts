@@ -100,8 +100,10 @@ test('documentos recientes se listan, reabren y persisten tras reiniciar', async
   try {
     const nextPage = await restarted.firstWindow()
     await expect(nextPage.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
+    // La pestaña de primero.md se restaura y vuelve a ser el documento actual.
+    await expect(nextPage.getByRole('tab', { name: 'primero.md', exact: true })).toHaveAttribute('aria-selected', 'true')
     const after = await nextPage.evaluate(() => window.documents.recent())
-    expect(after.map((entry) => [entry.path, entry.current])).toEqual([[first, false], [second, false]])
+    expect(after.map((entry) => [entry.path, entry.current])).toEqual([[first, true], [second, false]])
   } finally { await closeApplication(restarted) }
 })
 

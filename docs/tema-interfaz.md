@@ -15,6 +15,10 @@ Las variables están en `src/renderer/src/global.css`; los estilos privados usan
 | `--hiloo-selection` | `#387096` | Fondo de selección de texto en el editor de código. |
 | `--hiloo-on-accent` | `#203f5d` | Texto sobre botones con fondo de acento. |
 | `--hiloo-ui-font` | `'Segoe UI', system-ui, sans-serif` | Familia tipográfica de controles y títulos del documento. |
+| `--hiloo-tabs-background` | `var(--hiloo-window-background)` | Color de fondo de la barra de pestañas. |
+| `--hiloo-tab-active-background` | `var(--hiloo-bar)` | Color de la pestaña activa; une la pestaña con la barra de herramientas. |
+| `--hiloo-tab-dirty` | `var(--hiloo-accent)` | Color del punto de cambios sin guardar. |
+| `--hiloo-tab-height` | `30px` | Longitud CSS; altura fija de la barra de pestañas. |
 
 Cada color acepta un valor CSS válido. Los valores definidos en `:root` alcanzan también los portales Radix. El modo Día los sobrescribe mediante `html[data-theme='day']`; la vista de impresión delimita su propia paleta de papel blanco. Una sobrescritura solo dentro de un componente no alcanza sus portales. Las declaraciones inválidas siguen las reglas normales de CSS; no existe validador de temas personalizados. Espaciados, radios, color de error y opacidad deshabilitada todavía son reglas internas.
 
@@ -30,6 +34,8 @@ Ejemplo de variación, al final de `global.css`:
 ```
 
 El fondo inicial, los colores Día/Noche y los símbolos de los controles nativos provienen de `src/shared/window.ts`. El selector usa `window.appearance.setTheme` para actualizar fondo y botones nativos mediante IPC validado. Cambiar únicamente CSS en ejecución no sincroniza esos controles. La variable interna `--hiloo-titlebar-height` sincroniza la región de arrastre con los controles; no forma parte del tema público.
+
+La barra de pestañas está sobre la barra de herramientas. Por omisión toma el fondo de la ventana y la pestaña activa el color de barra, con una línea superior de acento; las pestañas inactivas usan `--hiloo-muted` y `--hiloo-hover` al pasar el puntero. Sus variables derivan de las anteriores, así que Día y Noche las ajustan sin reglas propias. Su comportamiento se describe en [cuadernos y Cerebro](cuadernos-y-cerebro.md#pestañas).
 
 Los botones tienen nombre accesible, tooltip y foco de 2 px con el color de acento. Los formatos activos exponen `aria-pressed`; el selector de bloque es Radix Select. El área editable usa cursor de acento como indicación de foco. Cambiar colores exige volver a comprobar contraste, selección y foco. La barra se distribuye en más de una fila en ventanas estrechas; el mínimo es 420 × 300 unidades lógicas. No es una certificación completa WCAG ni una prueba con lector de pantalla.
 

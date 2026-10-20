@@ -24,6 +24,21 @@ export interface RecentEntry {
 
 export type RecentDocument = RecentEntry
 
+export interface DocumentTab {
+  id: string
+  name: string
+  path: string | null
+  dirty: boolean
+}
+
+export interface DocumentTabs {
+  tabs: DocumentTab[]
+  activeId: string
+}
+
+// 'current' reemplaza la pestaña activa; 'new-tab' abre al lado o enfoca la pestaña existente.
+export type OpenTarget = 'current' | 'new-tab'
+
 export type DocumentResult = { status: 'ok' } | { status: 'cancelled' } | { status: 'error'; message: string }
 
 // El proceso principal decide la acción; las notas las abre el renderer con openNote.
@@ -57,4 +72,8 @@ export interface DocumentBridge {
   onBusy(callback: (busy: boolean) => void): () => void
   onError(callback: (message: string) => void): () => void
   onFlush(callback: () => Promise<string | null>): () => void
+  tabs(): Promise<DocumentTabs>
+  activate(id: string): Promise<DocumentResult>
+  closeTab(id: string): Promise<DocumentResult>
+  onTabs(callback: (tabs: DocumentTabs) => void): () => void
 }

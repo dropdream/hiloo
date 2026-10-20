@@ -59,7 +59,7 @@ test('crea carpetas vacías anidadas y una nota editable desde el árbol', async
   expect(await fs.readFile(join(root, 'Clientes', '2026', 'Contrato.md'), 'utf8')).toBe('# Contrato\n\nPrimera versión.\n')
 })
 
-test('cancelar no crea archivos y las notas nuevas confirman los cambios antes de crearse', async ({ application, editorPage: page }, testInfo) => {
+test('cancelar no crea archivos y las notas nuevas se abren en otra pestaña sin perder cambios', async ({ application, editorPage: page }, testInfo) => {
   const root = testInfo.outputPath('creacion-cancelada')
   await fs.mkdir(root, { recursive: true })
   await fs.writeFile(join(root, 'original.md'), '# Original\n')
@@ -75,21 +75,19 @@ test('cancelar no crea archivos y las notas nuevas confirman los cambios antes d
   expect(await fs.readdir(root)).toEqual(['original.md'])
   const editor = page.getByRole('textbox', { name: 'Documento Markdown', exact: true })
   await editor.fill('Cambios que no se deben perder')
-  await chooseChanges(application, 2)
-  expect(await page.evaluate((id) => window.workspace.create(id, 'Cancelada', 'note'), snapshot.id)).toEqual({ status: 'cancelled' })
-  expect(await fs.readdir(root)).toEqual(['original.md'])
-  await expect(editor).toHaveText('Cambios que no se deben perder')
-  expect((await page.evaluate(() => window.documents.current())).dirty).toBe(true)
   expect(await page.evaluate((id) => window.workspace.create(id, 'Carpeta permitida', 'folder'), snapshot.id)).toEqual({ status: 'ok' })
   await expect(editor).toHaveText('Cambios que no se deben perder')
   expect((await page.evaluate(() => window.documents.current())).dirty).toBe(true)
-  await chooseChanges(application, 0)
+  // La nota nueva va a otra pestaña: no pide guardar la actual.
+  await chooseChanges(application, 2)
   expect(await page.evaluate((id) => window.workspace.create(id, 'Nueva.md', 'note'), snapshot.id)).toEqual({ status: 'ok' })
-  expect(await fs.readFile(join(root, 'original.md'), 'utf8')).toContain('Cambios que no se deben perder')
+  expect(await fs.readFile(join(root, 'original.md'), 'utf8')).toBe('# Original\n')
   expect(await fs.readFile(join(root, 'Nueva.md'), 'utf8')).toBe('')
   expect(await fs.readdir(root)).not.toContain('Nueva.md.md')
   await expect(editor).toHaveText('')
   expect((await page.evaluate(() => window.documents.current())).name).toBe('Nueva.md')
+  const tabs = await page.evaluate(() => window.documents.tabs())
+  expect(tabs.tabs.map((tab) => [tab.name, tab.dirty])).toEqual([['original.md', true], ['Nueva.md', false]])
 })
 
 test('crear rechaza nombres Windows inválidos y no sobrescribe notas ni carpetas existentes', async ({ application, editorPage: page }, testInfo) => {

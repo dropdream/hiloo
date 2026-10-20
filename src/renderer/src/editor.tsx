@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Editor, defaultValueCtx, rootCtx, editorViewCtx, editorViewOptionsCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
+import { Editor, defaultValueCtx, rootCtx, editorStateCtx, editorViewCtx, editorViewOptionsCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
 import { commonmark, imageSchema } from '@milkdown/kit/preset/commonmark'
 import { gfm, tableSchema } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { undo, redo, undoDepth, redoDepth, closeHistory } from '@milkdown/kit/prose/history'
-import { AllSelection, Plugin, Selection, TextSelection, type Command, type EditorState } from '@milkdown/kit/prose/state'
+import { AllSelection, EditorState, Plugin, Selection, TextSelection, type Command } from '@milkdown/kit/prose/state'
 import { lift, setBlockType, toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
 import { liftListItem, wrapInList } from '@milkdown/kit/prose/schema-list'
 import { $prose } from '@milkdown/kit/utils'
@@ -100,7 +100,9 @@ function selectionState(state: EditorState): SelectionState {
 }
 
 interface Props {
-  documentId?: string
+  documentId: string
+  // Pestañas abiertas: el editor descarta el estado de las demás.
+  openIds: string[]
   source: string
   savedSource: string
   onReady(controller: EditorController): void
@@ -110,13 +112,27 @@ interface Props {
   onLink(href: string): void
 }
 
+interface StoredState {
+  state: EditorState
+  blocked: boolean
+}
+
+const blockedMessage =
+  'La conversión visual cambiaría la estructura de este archivo. Se muestra el original en solo lectura; no se ha modificado.'
+
+// Una sola instancia de Milkdown para todas las pestañas: al cambiar se guarda el
+// EditorState (con su historial) y se restaura el de la pestaña elegida.
 export function MarkdownEditor(props: Props) {
   const mount = useRef<HTMLDivElement>(null)
   const callbacks = useRef(props)
   callbacks.current = props
   const initialSource = useRef(props.source)
   const initialSavedSource = useRef(props.savedSource)
+  const initialId = useRef(props.documentId)
+  const load = useRef<(() => void) | null>(null)
+  const stored = useRef(new Map<string, StoredState>())
   const [blocked, setBlocked] = useState(false)
+  const [original, setOriginal] = useState(props.source)
 
   useEffect(() => {
     const host = document.createElement('div')
@@ -124,10 +140,17 @@ export function MarkdownEditor(props: Props) {
     let disposed = false
     let ready = false
     let editable = true
+    let requestedEditable = true
     let baseline = ''
     let lastSelection = ''
     let replacing = false
     let conversionBlocked = false
+    let currentId = initialId.current
+    const nodeViews = () =>
+      editorNodeViews(
+        () => editable,
+        () => callbacks.current.documentId
+      )
     const reportSelection = (state: EditorState) => {
       const value = selectionState(state)
       const key = JSON.stringify(value)
@@ -174,10 +197,7 @@ export function MarkdownEditor(props: Props) {
           ...options,
           attributes: { class: 'hiloo-document', role: 'textbox', 'aria-label': 'Documento Markdown', 'aria-multiline': 'true', spellcheck: 'false' },
           editable: () => editable,
-          nodeViews: editorNodeViews(
-            () => editable,
-            () => callbacks.current.documentId
-          ),
+          nodeViews: nodeViews(),
           // Los enlaces se siguen con Ctrl+clic; el clic simple solo coloca el cursor.
           handleClick: (_view, _position, event) => {
             const link = (event.target as Element).closest('a')
@@ -238,9 +258,7 @@ export function MarkdownEditor(props: Props) {
           editable = false
           conversionBlocked = true
           setBlocked(true)
-          callbacks.current.onError(
-            'La conversión visual cambiaría la estructura de este archivo. Se muestra el original en solo lectura; no se ha modificado.'
-          )
+          callbacks.current.onError(blockedMessage)
         }
         ready = true
         reportSelection(view.state)
@@ -256,7 +274,7 @@ export function MarkdownEditor(props: Props) {
             return false
           }
         }
-        callbacks.current.onReady({
+        const controller: EditorController = {
           visualReady: () => !conversionBlocked,
           replaceSource: (source) => {
             try {
@@ -298,6 +316,7 @@ export function MarkdownEditor(props: Props) {
           },
           focus: () => view.focus(),
           setEditable: (value) => {
+            requestedEditable = value
             editable = value && !conversionBlocked
             view.setProps({ editable: () => editable })
             host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => { checkbox.disabled = !editable })
@@ -373,7 +392,39 @@ export function MarkdownEditor(props: Props) {
             command(view.state, (transaction) => view.dispatch(transaction), view)
             view.focus()
           }
-        })
+        }
+        load.current = () => {
+          const { documentId, source, savedSource } = callbacks.current
+          if (documentId === currentId) return
+          stored.current.set(currentId, { state: view.state, blocked: conversionBlocked })
+          const saved = stored.current.get(documentId)
+          const parsed = editor.ctx.get(parserCtx)(source)
+          // El estado guardado solo vale si coincide con el contenido que conoce el proceso principal.
+          const reuse = saved && editor.ctx.get(serializerCtx)(saved.state.doc) === editor.ctx.get(serializerCtx)(parsed)
+          const next = reuse
+            ? saved.state
+            : EditorState.create({ schema: view.state.schema, doc: parsed, plugins: view.state.plugins })
+          currentId = documentId
+          conversionBlocked = reuse ? saved.blocked : markdownSignature(source) !== markdownSignature(editor.ctx.get(serializerCtx)(parsed))
+          baseline = savedBaseline(savedSource)
+          editable = requestedEditable && !conversionBlocked
+          replacing = true
+          try {
+            // Vistas de nodo nuevas: las imágenes se resuelven respecto a otro documento.
+            view.update({ ...view.props, state: next, editable: () => editable, nodeViews: nodeViews() })
+            editor.ctx.set(editorStateCtx, next)
+          } finally {
+            replacing = false
+          }
+          setOriginal(source)
+          setBlocked(conversionBlocked)
+          if (conversionBlocked) callbacks.current.onError(blockedMessage)
+          lastSelection = ''
+          reportSelection(view.state)
+          callbacks.current.onReady(controller)
+        }
+        if (callbacks.current.documentId !== currentId) load.current()
+        else callbacks.current.onReady(controller)
       })
       .catch(() => {
         if (!disposed) {
@@ -383,17 +434,25 @@ export function MarkdownEditor(props: Props) {
       })
     return () => {
       disposed = true
+      load.current = null
       host.remove()
       void created.then(() => editor.destroy())
     }
   }, [])
+
+  useEffect(() => load.current?.(), [props.documentId])
+
+  const openKey = props.openIds.join('\n')
+  useEffect(() => {
+    for (const id of stored.current.keys()) if (!props.openIds.includes(id)) stored.current.delete(id)
+  }, [openKey])
 
   return (
     <div className={styles.surface}>
       <div ref={mount} hidden={blocked} />
       {blocked ? (
         <pre className={styles.original} aria-label="Original en solo lectura">
-          {initialSource.current}
+          {original}
         </pre>
       ) : null}
     </div>

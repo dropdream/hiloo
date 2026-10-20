@@ -1,4 +1,4 @@
-import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { app, dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { basename, extname, join } from 'node:path'
 import {
@@ -6,7 +6,9 @@ import {
   type DocumentPreviewResult,
   type DocumentPrintSnapshot,
   type DocumentResult,
-  type DocumentSnapshot
+  type DocumentSnapshot,
+  type DocumentTabs,
+  type OpenTarget
 } from '../shared/documents'
 import { markdownProblem } from '../shared/markdown'
 import { validatePageSettings, type PageSettings } from '../shared/printing'
@@ -17,6 +19,7 @@ import { createLinkHandlers } from './document-links'
 import { read, matches, samePath, validatePath, writeDocument, type DocumentSession } from './document-io'
 import { createWorkspaceHandlers } from './workspace-handlers'
 import { attachBrain } from './brain-service'
+import { OpenTabsStore } from './open-tabs'
 import { validateWorkspaceNote, withinWorkspace, type WorkspaceSession } from './workspace'
 
 export type DocumentOperation = <T extends DocumentResult>(
@@ -27,24 +30,32 @@ export interface DocumentActions {
   current(): DocumentSession
   reset(): void
   confirmChanges(): Promise<boolean>
-  openPath(path: string, revision: number, owner?: WorkspaceSession): Promise<DocumentResult>
+  confirmAll(): Promise<boolean>
+  focusPath(path: string): Promise<boolean>
+  openPath(path: string, revision: number, owner?: WorkspaceSession, target?: OpenTarget): Promise<DocumentResult>
   operation: DocumentOperation
   errorResult(error: unknown): Extract<DocumentResult, { status: 'error' }>
 }
 
+const blankDocument = (): DocumentSession => ({
+  id: randomUUID(),
+  path: null,
+  original: null,
+  source: '',
+  content: '',
+  bom: false,
+  crlf: false,
+  revision: 0,
+  savedRevision: 0,
+  updateError: null
+})
+
 export function attachDocuments(window: BrowserWindow, trustedUrl: string): void {
-  let document: DocumentSession = {
-    id: randomUUID(),
-    path: null,
-    original: null,
-    source: '',
-    content: '',
-    bom: false,
-    crlf: false,
-    revision: 0,
-    savedRevision: 0,
-    updateError: null
-  }
+  // Cada pestaña conserva su sesión; `document` es siempre la activa.
+  let document = blankDocument()
+  let tabs: DocumentSession[] = [document]
+  let tabsRestored = false
+  const openTabs = new OpenTabsStore(join(app.getPath('userData'), 'open-tabs.json'))
   let busy = false
   let allowClose = false
   let pendingFlush: {
@@ -54,10 +65,21 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   let printPreview: (DocumentPrintSnapshot & { settings: PageSettings }) | null = null
   const brain = attachBrain(window, trustedUrl)
   const channels: string[] = []
-  const dirty = () => Boolean(document.updateError) || document.content !== document.source
+  const isDirty = (session: DocumentSession) => Boolean(session.updateError) || session.content !== session.source
+  const dirty = () => isDirty(document)
+  const nameOf = (session: DocumentSession) => (session.path ? basename(session.path) : 'Sin título')
+  const replaceActive = (next: DocumentSession) => {
+    tabs[tabs.indexOf(document)] = next
+    document = next
+  }
+  const pristine = (session: DocumentSession) => !session.path && !isDirty(session) && session.content === ''
+  const tabsSnapshot = (): DocumentTabs => ({
+    tabs: tabs.map((session) => ({ id: session.id, name: nameOf(session), path: session.path, dirty: isDirty(session) })),
+    activeId: document.id
+  })
   const snapshot = (): DocumentSnapshot => ({
     id: document.id,
-    name: document.path ? basename(document.path) : 'Sin título',
+    name: nameOf(document),
     content: document.content,
     savedContent: document.source,
     revision: document.revision,
@@ -69,26 +91,24 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
   const emit = () => {
     window.setTitle(`${dirty() ? '• ' : ''}${snapshot().name} — hiloo`)
     window.webContents.send('document:changed', snapshot())
+    window.webContents.send('document:tabs-changed', tabsSnapshot())
     recent.emitDocuments()
+    if (tabsRestored) {
+      const saved = tabs.filter((session) => session.path)
+      void openTabs.save({ paths: saved.map((session) => session.path!), active: Math.max(0, saved.indexOf(document)) })
+    }
   }
   const documents: DocumentActions = {
     current: () => document,
+    // Cambiar de cuaderno cierra todas las pestañas, como antes cerraba el documento.
     reset: () => {
-      document = {
-        id: randomUUID(),
-        path: null,
-        original: null,
-        source: '',
-        content: '',
-        bom: false,
-        crlf: false,
-        revision: 0,
-        savedRevision: 0,
-        updateError: null
-      }
+      document = blankDocument()
+      tabs = [document]
       emit()
     },
     confirmChanges,
+    confirmAll,
+    focusPath,
     openPath,
     operation,
     errorResult
@@ -225,14 +245,14 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       if (document.updateError) throw new Error(document.updateError)
     })
     const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    document = {
+    replaceActive({
       ...document,
       path: target,
       original: bytes,
       source,
       savedRevision: writing.revision,
       content: document.revision === writing.revision ? source : document.content
-    }
+    })
     await recent.rememberDocument(target)
     emit()
     if (document.updateError) throw new Error(document.updateError)
@@ -266,7 +286,30 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     return true
   }
 
-  async function openPath(path: string, revision: number, owner?: WorkspaceSession): Promise<DocumentResult> {
+  // Pregunta por cada pestaña con cambios, mostrándola antes del diálogo.
+  async function confirmAll(): Promise<boolean> {
+    for (const session of [...tabs]) {
+      if (!isDirty(session) || !tabs.includes(session)) continue
+      if (session !== document) {
+        document = session
+        emit()
+      }
+      if (!(await confirmChanges())) return false
+    }
+    return true
+  }
+
+  // Enfoca otra pestaña que ya muestra ese archivo.
+  async function focusPath(path: string): Promise<boolean> {
+    const existing = tabs.find((session) => session.path !== null && samePath(session.path, path))
+    if (!existing || existing === document) return false
+    document = existing
+    emit()
+    await workspaces.refreshCurrent()
+    return true
+  }
+
+  async function loadDocument(path: string, owner?: WorkspaceSession): Promise<DocumentSession> {
     validatePath(path)
     if (owner) await validateWorkspaceNote(owner, path)
     const bytes = await read(path)
@@ -281,11 +324,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (source.includes('\0')) throw new Error('El archivo contiene datos binarios y no puede abrirse como Markdown.')
     const problem = markdownProblem(source)
     if (problem) throw new Error(problem)
-    if (document.revision !== revision)
-      throw new Error(
-        'Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.'
-      )
-    document = {
+    return {
       id: randomUUID(),
       path,
       original: bytes,
@@ -297,10 +336,52 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
       savedRevision: 0,
       updateError: null
     }
+  }
+
+  async function openPath(
+    path: string,
+    revision: number,
+    owner?: WorkspaceSession,
+    target: OpenTarget = 'current'
+  ): Promise<DocumentResult> {
+    if (await focusPath(path)) return { status: 'ok' }
+    const next = await loadDocument(path, owner)
+    if (target === 'current' && document.revision !== revision)
+      throw new Error(
+        'Llegaron cambios mientras se abría el archivo. La edición actual se conserva; volver a abrir después de revisarla.'
+      )
+    if (target === 'current' || pristine(document)) replaceActive(next)
+    else {
+      tabs.splice(tabs.indexOf(document) + 1, 0, next)
+      document = next
+    }
     await recent.rememberDocument(path)
     emit()
     await workspaces.followDocument()
     return { status: 'ok' }
+  }
+
+  async function restoreTabs(): Promise<void> {
+    const saved = await openTabs.load()
+    const restored: DocumentSession[] = []
+    let active: DocumentSession | undefined
+    for (const [index, path] of (saved?.paths ?? []).entries()) {
+      if (restored.some((session) => samePath(session.path!, path))) continue
+      try {
+        const session = await loadDocument(path)
+        restored.push(session)
+        if (index === saved!.active) active = session
+      } catch {
+        // Las notas que ya no existen o no pueden abrirse se omiten.
+      }
+    }
+    tabsRestored = true
+    if (!restored.length || window.isDestroyed()) return
+    // Si ya se empezó a escribir en el documento inicial, se conserva.
+    tabs = pristine(document) && tabs.length === 1 ? restored : [...tabs, ...restored]
+    document = active ?? restored[0]
+    emit()
+    await workspaces.followDocument()
   }
 
   handle('workspace:recent', recent.listWorkspaces)
@@ -326,8 +407,47 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     pendingFlush.resolve(typeof error === 'string' ? error.slice(0, 500) : null)
     return { status: 'ok' }
   })
+  handle('document:tabs', () => tabsSnapshot())
+  handle('document:activate', (id) => {
+    if (typeof id !== 'string' || !tabs.some((session) => session.id === id))
+      return { status: 'error', message: 'La pestaña ya no está abierta.' }
+    return operation(async () => {
+      const target = tabs.find((session) => session.id === id)
+      if (!target) throw new Error('La pestaña ya no está abierta.')
+      if (target === document) return { status: 'ok' }
+      document = target
+      emit()
+      await workspaces.refreshCurrent()
+      return { status: 'ok' }
+    })
+  })
+  handle('document:close-tab', (id) => {
+    if (typeof id !== 'string' || !tabs.some((session) => session.id === id))
+      return { status: 'error', message: 'La pestaña ya no está abierta.' }
+    return operation(async () => {
+      const target = tabs.find((session) => session.id === id)
+      if (!target) throw new Error('La pestaña ya no está abierta.')
+      // Mismo criterio que al cambiar de documento: se muestra y se confirma.
+      if (isDirty(target)) {
+        if (target !== document) {
+          document = target
+          emit()
+        }
+        if (!(await confirmChanges())) return { status: 'cancelled' }
+      }
+      const index = tabs.indexOf(target)
+      if (index < 0) return { status: 'ok' }
+      tabs.splice(index, 1)
+      if (!tabs.length) tabs.push(blankDocument())
+      if (target === document) document = tabs[Math.min(index, tabs.length - 1)]
+      emit()
+      await workspaces.refreshCurrent()
+      return { status: 'ok' }
+    })
+  })
   handle('document:update', (id, content) => {
-    if (id !== document.id) return { status: 'error', message: 'El documento no es válido.' }
+    const document = tabs.find((session) => session.id === id)
+    if (!document) return { status: 'error', message: 'El documento no es válido.' }
     document.revision++
     if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > maxDocumentBytes) {
       document.updateError =
@@ -436,7 +556,7 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     if (allowClose) return
     event.preventDefault()
     void operation(async () => {
-      if (!(await confirmChanges())) return { status: 'cancelled' }
+      if (!(await confirmAll())) return { status: 'cancelled' }
       const revision = document.revision
       setImmediate(() => {
         if (document.revision !== revision) {
@@ -458,4 +578,5 @@ export function attachDocuments(window: BrowserWindow, trustedUrl: string): void
     pendingFlush?.resolve('La ventana se cerró antes de confirmar la edición.')
   )
   window.once('closed', () => channels.forEach((channel) => ipcMain.removeHandler(channel)))
+  void restoreTabs()
 }
