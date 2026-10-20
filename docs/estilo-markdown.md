@@ -58,7 +58,7 @@ Texto con **negrita**, *cursiva* y `código`.
 
 ## Seguir enlaces
 
-En la vista con formato, un enlace se sigue con **Ctrl+clic**; el clic simple solo coloca el cursor. Si el documento no admite edición, basta un clic. Al pasar el ratón aparece la pista «Ctrl+clic para abrir».
+En la vista con formato, un enlace se sigue con **Ctrl+clic**; el clic simple solo coloca el cursor. Al pasar el ratón aparece la pista «Ctrl+clic para abrir».
 
 | Enlace | Acción |
 | --- | --- |
@@ -68,7 +68,7 @@ En la vista con formato, un enlace se sigue con **Ctrl+clic**; el clic simple so
 | Otro archivo local o carpeta | Solo se muestra en el Explorador de Windows; hiloo nunca lo abre ni lo ejecuta. |
 | Cualquier otro protocolo, rutas absolutas (`C:\…`, `/…`) o UNC (`\\servidor\…`) | Se ignora. |
 
-Si la nota tiene cambios sin guardar, se pregunta como al abrir otra nota desde la barra lateral. Un destino inexistente, una sección que no aparece o un enlace que sale del cuaderno muestran un aviso; la nota actual se conserva. La nota debe estar guardada para seguir enlaces relativos.
+Si la nota tiene cambios sin guardar, se pregunta como al abrir otra nota desde la barra lateral. Un destino inexistente, una sección que no aparece o un enlace que sale del cuaderno muestran un aviso; la nota actual se conserva. La nota debe estar guardada para seguir enlaces relativos. Si se abre otra nota mientras se resuelve un enlace, ese enlace ya no se sigue.
 
 El proceso principal decide la acción: recibe la dirección sin interpretar, decodifica `%xx`, rechaza unidades, flujos NTFS (`:`), rutas absolutas y UNC, y comprueba con la ruta real, incluidos enlaces simbólicos y *junctions*, que el destino quede dentro del cuaderno o, sin cuaderno, de la carpeta de la nota. La ventana sigue sin navegar ni abrir ventanas nuevas.
 

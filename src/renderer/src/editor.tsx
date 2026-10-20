@@ -178,13 +178,13 @@ export function MarkdownEditor(props: Props) {
             () => editable,
             () => callbacks.current.documentId
           ),
-          // En edición se sigue con Ctrl+clic; sin edición basta el clic.
+          // Los enlaces se siguen con Ctrl+clic; el clic simple solo coloca el cursor.
           handleClick: (_view, _position, event) => {
             const link = (event.target as Element).closest('a')
             if (!link) return false
             event.preventDefault()
             const href = link.getAttribute('href')
-            if (href && event.button === 0 && (!editable || event.ctrlKey || event.metaKey)) callbacks.current.onLink(href)
+            if (href && event.button === 0 && (event.ctrlKey || event.metaKey)) callbacks.current.onLink(href)
             return true
           },
           handleDOMEvents: {
@@ -194,7 +194,7 @@ export function MarkdownEditor(props: Props) {
             },
             mouseover: (_view, event) => {
               const link = (event.target as Element).closest('a')
-              host.title = link ? (editable ? 'Ctrl+clic para abrir' : 'Clic para abrir') : ''
+              host.title = link ? 'Ctrl+clic para abrir' : ''
               return false
             }
           },

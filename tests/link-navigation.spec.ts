@@ -221,3 +221,41 @@ test('el proceso principal ignora protocolos, rutas absolutas, UNC y salidas del
   expect(await page.evaluate(([id, path]) => window.documents.openNote(id, path), [id, real] as const)).toEqual({ status: 'ok' })
   expect((await page.evaluate(() => window.documents.current())).name).toBe('nota.md')
 })
+
+test('un enlace que se resuelve después de abrir otra nota no la reemplaza', async ({ application, editorPage: page }, testInfo) => {
+  const root = testInfo.outputPath('enlaces-obsoletos')
+  const { snapshot, open } = await notebook(application, page, root, {
+    'origen.md': '[Destino](destino.md)\n',
+    'destino.md': '# Destino\n',
+    'otra.md': '# Otra\n'
+  })
+  await open('origen.md')
+  // Retiene la resolución del enlace hasta que se abre otra nota.
+  await application.evaluate(() => {
+    const fs = process.mainModule!.require('node:fs').promises
+    const original = fs.realpath
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    let armed = true
+    Object.assign(globalThis, { releaseLink: release, linkWaiting: false })
+    fs.realpath = async (...args: unknown[]) => {
+      if (armed && String(args[0]).includes('destino')) {
+        armed = false
+        Object.assign(globalThis, { linkWaiting: true })
+        await gate
+      }
+      return original.apply(fs, args)
+    }
+  })
+  const editor = page.getByRole('textbox', { name: 'Documento Markdown', exact: true })
+  await editor.getByRole('link', { name: 'Destino', exact: true }).click({ modifiers: ['Control'] })
+  await expect.poll(() => application.evaluate(() => (globalThis as unknown as { linkWaiting: boolean }).linkWaiting)).toBe(true)
+  const other = snapshot.notes.find((note) => note.relativePath === 'otra.md')!
+  expect(await page.evaluate((id) => window.workspace.open(id), other.id)).toEqual({ status: 'ok' })
+  await expect(editor.locator('h1')).toHaveText('Otra')
+  await application.evaluate(() => (globalThis as unknown as { releaseLink(): void }).releaseLink())
+  await page.waitForTimeout(500)
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
+  await expect(editor.locator('h1')).toHaveText('Otra')
+  expect((await page.evaluate(() => window.documents.current())).name).toBe('otra.md')
+})

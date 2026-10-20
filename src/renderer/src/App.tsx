@@ -37,12 +37,14 @@ type WorkspaceAction =
   | { type: 'open' | 'recent' | 'recent-document'; id: string }
   | { type: 'create'; parentId: string; name: string; kind: 'folder' | 'note' }
   | { type: 'index'; id: string; usage: NotebookIndexUsage }
-  | { type: 'note'; path: string }
+  | { type: 'note'; path: string; from: string }
 
 // Punto de unión con las pestañas: 'new-tab' abrirá o enfocará la pestaña de la nota.
 export interface OpenNoteOptions {
   target: 'new-tab' | 'current'
   anchor?: string | null
+  // Documento desde el que se pidió; si ya no es el actual, no se abre.
+  from: string
 }
 
 export function App() {
@@ -274,9 +276,7 @@ export function App() {
             result = await window.workspace.open(request.id)
             break
           case 'note':
-            result = documentId.current
-              ? await window.documents.openNote(documentId.current, request.path)
-              : { status: 'error', message: 'No hay una nota abierta.' }
+            result = await window.documents.openNote(request.from, request.path)
             break
           case 'recent':
             result = await window.workspace.openRecent(request.id)
@@ -357,10 +357,10 @@ export function App() {
   // Única entrada para abrir notas desde enlaces. Sin pestañas todavía, 'new-tab' abre en la vista actual.
   const openNote = useCallback(
     async (path: string, options: OpenNoteOptions) => {
-      const from = documentId.current
-      if (!from) return
+      const { from } = options
+      if (from !== documentId.current) return
       pendingAnchor.current = options.anchor ? { from, anchor: options.anchor } : null
-      if (await runWorkspace({ type: 'note', path })) showAnchor()
+      if (await runWorkspace({ type: 'note', path, from })) showAnchor()
       else pendingAnchor.current = null
     },
     [runWorkspace, showAnchor]
@@ -372,11 +372,13 @@ export function App() {
       if (!id || locked.current) return
       try {
         const result = await window.documents.followLink(id, href)
+        // Otra nota abierta mientras se resolvía: el resultado ya no aplica.
+        if (id !== documentId.current) return
         if (result.status === 'error') setError(result.message)
         else if (result.status === 'anchor') {
           if (result.anchor && !controller.current?.scrollToAnchor(result.anchor))
             setError(`No se encontró la sección «${result.anchor}» en la nota.`)
-        } else if (result.status === 'note') await openNote(result.path, { target: 'new-tab', anchor: result.anchor })
+        } else if (result.status === 'note') await openNote(result.path, { target: 'new-tab', anchor: result.anchor, from: id })
       } catch {
         setError('No se pudo abrir el enlace.')
       }
