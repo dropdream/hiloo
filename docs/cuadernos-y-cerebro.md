@@ -12,7 +12,7 @@ La vista gráfica descrita aquí corresponde al cuaderno activo. El [índice glo
 - El clic derecho sobre una nota (o Mayús+F10 con el foco en ella) abre un menú con **Abrir en nueva pestaña**, que conserva la pestaña actual y sus cambios.
 - **Cambiar cuaderno** sustituye la carpeta activa. Tras confirmar los cambios pendientes de cada pestaña, una carpeta distinta cierra todas las pestañas y deja una vacía. Cancelar conserva las pestañas y el cuaderno actuales.
 - Abrir un archivo independiente establece su carpeta como cuaderno si no pertenece al actual. Abrir una nota de una subcarpeta del cuaderno conserva la raíz.
-- **Actualizar cuaderno** vuelve a leer el disco. Abrir o guardar una nota también actualiza el listado. No hay vigilancia automática de archivos.
+- **Actualizar cuaderno** vuelve a leer el disco. Abrir o guardar una nota también actualiza el listado; cambiar o cerrar pestañas solo marca la nota actual, sin volver a leer el disco. No hay vigilancia automática de archivos.
 
 En ventanas estrechas el panel se superpone al editor y se cierra al abrir una nota. Escape cierra el panel desde sus controles y devuelve el foco al botón del título. El panel no aparece en la impresión.
 
@@ -21,14 +21,14 @@ En ventanas estrechas el panel se superpone al editor y se cierra al abrir una n
 Una barra delgada sobre la barra de herramientas muestra los documentos abiertos. Cada pestaña lleva el nombre del archivo y su ruta completa en el tooltip; un punto de acento indica cambios sin guardar (para lectores de pantalla, la descripción «Cambios sin guardar»).
 
 - **Abren pestaña nueva:** seguir un enlace a otra nota con Ctrl+clic, **Abrir en nueva pestaña** del panel, **Nueva nota .md** y la creación de `indice.md`. Si la nota ya está abierta, se enfoca su pestaña. Si la pestaña actual es un documento vacío sin título y sin cambios, se reutiliza.
-- **Reemplazan la pestaña actual:** el clic en el panel, **Abrir**, **Documentos recientes** y **Abrir nota** de Cerebro, con la confirmación habitual de cambios pendientes. Si el archivo ya está en otra pestaña, se enfoca esa.
+- **Reemplazan la pestaña actual:** el clic en el panel, **Abrir**, **Documentos recientes** y **Abrir nota** de Cerebro, con la confirmación habitual de cambios pendientes. Si el archivo ya está en otra pestaña, se enfoca esa sin preguntar.
 - **Cambiar:** clic en la pestaña, Ctrl+Tab y Ctrl+Mayús+Tab. Con el foco en la barra, las flechas, Inicio y Fin recorren las pestañas e Intro o Espacio activan la elegida.
 - **Cerrar:** botón ×, clic central, Ctrl+W o Supr con el foco en la pestaña. Si tiene cambios, hiloo la muestra y pregunta Guardar, Descartar o Cancelar, igual que al cambiar de documento; Cancelar la deja abierta y activa. Cerrar la última deja una pestaña vacía.
 - Cada pestaña conserva su contenido sin guardar, su historial de deshacer y rehacer y su posición de desplazamiento. El modo Markdown o Vista impresión es común a todas.
 - Con muchas pestañas, estas se comprimen hasta un ancho mínimo y luego la barra se desplaza en horizontal, sin cambiar de altura; la pestaña activa siempre queda visible.
 - Cerrar la ventana pregunta por cada pestaña con cambios, una a una.
 
-Las pestañas con archivo y la activa se guardan en `open-tabs.json`, dentro del perfil, y se restauran al reabrir hiloo. Los documentos sin título no se guardan. Si una nota ya no existe o no puede abrirse al restaurar, se omite sin aviso. Restaurar la pestaña activa también establece su carpeta como cuaderno, como al abrirla.
+Las pestañas con archivo y la activa se guardan en `open-tabs.json`, dentro del perfil, y se restauran al reabrir hiloo. Los documentos sin título no se guardan. Si una nota ya no existe o no puede abrirse al restaurar, se omite sin aviso. Restaurar la pestaña activa también establece su carpeta como cuaderno, como al abrirla. Si antes de terminar la restauración el usuario ya abrió o editó algo, las pestañas restauradas se añaden al final sin quitarle el foco ni duplicar notas; si eligió otro cuaderno, la restauración se descarta.
 
 No hay vigilancia de archivos: un cambio externo o un cambio de nombre en una pestaña inactiva se detecta al guardarla, igual que en la pestaña activa, y la sobrescritura se bloquea con la opción de usar Guardar como.
 
