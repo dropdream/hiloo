@@ -56,3 +56,19 @@ test('la sintaxis FTS5 hostil se busca como texto y no rompe la consulta', async
     }
   } finally { index.close() }
 })
+
+test('los metadatos de una consulta larga respetan el presupuesto de caracteres', async ({}, testInfo) => {
+  const { index, id } = await notebook(testInfo)
+  try {
+    const absent = Array.from({ length: 16 }, (_, n) => `inexistentepalabralarga${String.fromCharCode(97 + n)}`).join(' ')
+    const empty = await index.search({ query: absent, notebookId: id, maxChars: 512 })
+    expect(JSON.stringify(empty).length).toBeLessThanOrEqual(512)
+    expect(empty.truncated).toBe(true)
+    expect(empty.items).toEqual([])
+    const mixed = await index.search({ query: `caja ${absent}`.slice(0, 512), notebookId: id, maxChars: 512 })
+    expect(JSON.stringify(mixed).length).toBeLessThanOrEqual(512)
+    expect(mixed.truncated).toBe(true)
+    const short = await index.search({ query: 'caja', notebookId: id })
+    expect(short).toMatchObject({ truncated: false, terms: ['caja'], missingTerms: [] })
+  } finally { index.close() }
+})

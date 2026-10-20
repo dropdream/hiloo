@@ -60,6 +60,17 @@ function budget<T extends { items: unknown[]; truncated: boolean }>(
   return false
 }
 
+// Los metadatos de la búsqueda cuentan en el presupuesto; se recortan por el final de la lista más larga.
+function trimTerms(result: BrainSearchResult, maxChars: number): void {
+  while (JSON.stringify(result).length > maxChars - 32) {
+    const { terms = [], missingTerms = [] } = result
+    const list = terms.length >= missingTerms.length ? terms : missingTerms
+    if (!list.length) return
+    list.pop()
+    result.truncated = true
+  }
+}
+
 function alive(pid: number): boolean {
   try {
     process.kill(pid, 0)
@@ -572,7 +583,8 @@ export class BrainIndex {
     })
     if (engine.terms) result.terms = engine.terms
     if (!engine.rowids.length) {
-      if (engine.terms?.length) result.missingTerms = engine.terms
+      if (engine.terms?.length) result.missingTerms = [...engine.terms]
+      trimTerms(result, maxChars)
       return result
     }
     const rows = this.rows(
@@ -598,6 +610,7 @@ export class BrainIndex {
     }
     const explained = engine.explain?.(chosen.map((row) => Number(row.rowid)))
     if (explained) result.missingTerms = explained.missing
+    trimTerms(result, maxChars)
     for (const { rowid, ...row } of chosen) {
       const matchedTerms = explained?.matched.get(Number(rowid))
       const excerpt = String(explained?.excerpts.get(Number(rowid)) ?? row.excerpt).slice(0, 350)
