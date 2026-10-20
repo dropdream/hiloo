@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@milkdown/kit": "7.22.2",
+    "@orama/stemmers": "3.1.18",
     "@radix-ui/react-select": "2.3.7",
     "@radix-ui/react-toolbar": "1.1.19",
     "@radix-ui/react-tooltip": "1.2.16",

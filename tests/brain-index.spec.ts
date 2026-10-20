@@ -107,14 +107,43 @@ test('migrar un índice anterior conserva identidades y recalcula el estado parc
   await new Promise<void>((done) => setImmediate(done))
   const old = new DatabaseSync(database)
   try {
-    old.exec('ALTER TABLE nodes DROP COLUMN links_partial; PRAGMA user_version=1;')
+    old.exec(`ALTER TABLE nodes DROP COLUMN links_partial; ALTER TABLE notebooks DROP COLUMN language;
+      ALTER TABLE notebooks DROP COLUMN detected_language; PRAGMA user_version=1;`)
   } finally { old.close() }
   const migrated = new BrainIndex(database)
   try {
-    expect((await migrated.status()).schemaVersion).toBe(2)
-    expect((await migrated.catalog()).items[0].id).toBe(notebook.id)
+    expect((await migrated.status()).schemaVersion).toBe(3)
+    expect((await migrated.catalog()).items[0]).toMatchObject({ id: notebook.id, language: 'auto', detectedLanguage: null })
     expect((await migrated.sync(notebook.id)).status).toBe('partial')
     expect((await migrated.search({ query: 'enlaces' })).items[0].nodeId).toBe(hit.nodeId)
+    expect((await migrated.related({ nodeId: notebook.id, type: 'manual' })).items[0].linkId).toBe(link.id)
+  } finally { migrated.close() }
+})
+
+test('migrar del esquema 2 añade el idioma sin reindexar ni perder relaciones', async ({}, testInfo) => {
+  const root = testInfo.outputPath('cuaderno')
+  const database = testInfo.outputPath('brain.sqlite')
+  await fs.mkdir(root, { recursive: true })
+  await fs.writeFile(join(root, 'nota.md'), '# Nota\n\nThe invoice is paid when the customer sends the money to the bank and the order is closed.\n')
+  const first = new BrainIndex(database)
+  const notebook = await first.registerNotebook(root)
+  await first.sync(notebook.id)
+  const hit = (await first.search({ query: 'invoice' })).items[0]
+  const link = await first.link({ sourceId: notebook.id, targetId: hit.nodeId })
+  first.close()
+  await new Promise<void>((done) => setImmediate(done))
+  const old = new DatabaseSync(database)
+  try {
+    old.exec('ALTER TABLE notebooks DROP COLUMN language; ALTER TABLE notebooks DROP COLUMN detected_language; PRAGMA user_version=2;')
+  } finally { old.close() }
+  const migrated = new BrainIndex(database)
+  try {
+    expect((await migrated.status()).schemaVersion).toBe(3)
+    expect((await migrated.search({ query: 'invoices' })).items[0].chunkId).toBe(hit.chunkId)
+    expect((await migrated.sync(notebook.id)).changedFiles).toBe(0)
+    expect((await migrated.catalog()).items[0]).toMatchObject({ id: notebook.id, language: 'auto', detectedLanguage: 'en' })
+    expect((await migrated.setLanguage(notebook.id, 'es')).language).toBe('es')
+    await expect(migrated.setLanguage(notebook.id, 'xx' as 'es')).rejects.toThrow()
     expect((await migrated.related({ nodeId: notebook.id, type: 'manual' })).items[0].linkId).toBe(link.id)
   } finally { migrated.close() }
 })

@@ -18,11 +18,15 @@ import type {
   BrainSearchRequest,
   BrainSearchResult,
   BrainStatus,
-  BrainSyncResult
+  BrainSyncResult,
+  BrainLanguage
 } from '../../shared/brain'
 import { createWorkspace, pathKey, validateWorkspaceNote, withinWorkspace, type WorkspaceSession } from '../workspace'
 import { hash, parseDocument, parserVersion, chunkVersion } from './parse'
 import { openDatabase, schemaVersion } from './schema'
+import type { SearchEngine, SearchEngineFactory } from './engine'
+import { FtsEngine } from './fts-engine'
+import { detectLanguage, isLanguage, searchLanguages, type LanguageCode } from './languages'
 
 const maxFileBytes = 2 * 1024 * 1024
 const maxScanBytes = 32 * 1024 * 1024
@@ -70,10 +74,12 @@ export class BrainIndex {
   private queue: Promise<unknown> = Promise.resolve()
   private closed = false
   private readonly token = randomUUID()
+  private readonly engine: SearchEngine
 
-  constructor(filePath: string) {
+  constructor(filePath: string, options: { engine?: SearchEngineFactory } = {}) {
     if (filePath !== ':memory:') mkdirSync(dirname(filePath), { recursive: true })
     this.db = openDatabase(filePath)
+    this.engine = (options.engine ?? ((db) => new FtsEngine(db)))(this.db)
   }
 
   private assertOpen(): void {
@@ -111,8 +117,28 @@ export class BrainIndex {
           'SELECT count(*) AS n FROM chunks JOIN nodes ON nodes.id=chunks.node_id WHERE nodes.notebook_id=? AND nodes.deleted=0',
           String(value.id)
         )!.n
-      )
+      ),
+      language: isLanguage(value.language) ? value.language : 'auto',
+      detectedLanguage: isLanguage(value.detected_language) ? value.detected_language : null
     }
+  }
+
+  async setLanguage(notebookId: string, language: BrainLanguage | 'auto'): Promise<BrainNotebook> {
+    this.assertOpen()
+    id(notebookId)
+    if (language !== 'auto' && !isLanguage(language)) throw new Error('Idioma no admitido. Usa auto, es, en, pt, fr, de o it.')
+    if (!this.db.prepare('UPDATE notebooks SET language=? WHERE id=?').run(language, notebookId).changes)
+      throw new Error('El cuaderno no está registrado.')
+    return this.notebook(this.row('SELECT * FROM notebooks WHERE id=?', notebookId)!)
+  }
+
+  // Muestra acotada del cuaderno: basta para contar palabras vacías.
+  private detectNotebookLanguage(notebookId: string): LanguageCode | null {
+    const sample = this.rows(
+      'SELECT substr(chunks.body,1,2000) AS body FROM chunks JOIN nodes ON nodes.id=chunks.node_id WHERE nodes.notebook_id=? AND nodes.deleted=0 LIMIT 200',
+      notebookId
+    )
+    return detectLanguage(sample.map((row) => String(row.body)).join(' '), 5)
   }
 
   async registerNotebook(root: string): Promise<BrainNotebook> {
@@ -366,7 +392,8 @@ export class BrainIndex {
         }
         this.db.prepare('UPDATE nodes SET deleted=1,source_hash=NULL,indexed_at=NULL WHERE notebook_id=? AND seen_generation<>?').run(notebookId, generation)
       }
-      this.db.prepare('UPDATE notebooks SET status=?,indexed_at=? WHERE id=?').run(complete ? 'ready' : 'partial', indexedAt, notebookId)
+      this.db.prepare('UPDATE notebooks SET status=?,indexed_at=?,detected_language=? WHERE id=?')
+        .run(complete ? 'ready' : 'partial', indexedAt, this.detectNotebookLanguage(notebookId), notebookId)
       this.db.prepare('UPDATE jobs SET state=?,heartbeat=?,changed_files=?,error=? WHERE notebook_id=? AND owner_token=?')
         .run(
           complete ? 'done' : 'pending',
@@ -519,15 +546,15 @@ export class BrainIndex {
       throw new Error('La búsqueda debe tener hasta 512 caracteres.')
     const limit = integer(request.limit, 6, 1, 20)
     const maxChars = integer(request.maxChars, 6000, 512, 16000)
-    const terms = (request.query.match(/[\p{L}\p{N}_]+/gu) ?? []).slice(0, 16)
     const result: BrainSearchResult = { items: [], truncated: false, indexedAt: null }
-    if (!terms.length) return result
     let where = 'nodes.deleted=0'
-    const args: SQLInputValue[] = [terms.map((term) => `"${term}"`).join(' AND ')]
+    const args: SQLInputValue[] = []
+    let scoped: string | null = null
     if (request.notebookId !== undefined) {
       id(request.notebookId)
       where += ' AND nodes.notebook_id=?'
       args.push(request.notebookId)
+      scoped = request.notebookId
     }
     if (request.ancestorId !== undefined) {
       id(request.ancestorId)
@@ -536,29 +563,64 @@ export class BrainIndex {
       where += ' AND nodes.notebook_id=? AND (nodes.id=? OR substr(nodes.path_key,1,?)=?)'
       const prefix = ancestor.path_key ? `${ancestor.path_key}/` : ''
       args.push(ancestor.notebook_id, request.ancestorId, prefix.length, prefix)
+      scoped = String(ancestor.notebook_id)
+    }
+    const engine = this.engine.search({
+      query: request.query,
+      languages: searchLanguages(request.query, this.notebookLanguages(scoped)),
+      scope: { where, args }
+    })
+    if (engine.terms) result.terms = engine.terms
+    if (!engine.rowids.length) {
+      if (engine.terms?.length) result.missingTerms = engine.terms
+      return result
     }
     const rows = this.rows(
-      `SELECT chunks.id AS chunkId,nodes.id AS nodeId,nodes.notebook_id AS notebookId,nodes.title,chunks.path AS relativePath,
-      chunks.heading,snippet(chunks_fts,3,'','','…',48) AS excerpt,chunks.source_hash AS sourceHash,nodes.indexed_at AS indexedAt
-      FROM chunks_fts JOIN chunks ON chunks.rowid=chunks_fts.rowid JOIN nodes ON nodes.id=chunks.node_id
-      WHERE chunks_fts MATCH ? AND ${where} AND rank MATCH 'bm25(5.0, 3.0, 2.0, 1.0)' ORDER BY rank LIMIT 201`,
-      ...args
+      `SELECT chunks.rowid AS rowid,chunks.id AS chunkId,nodes.id AS nodeId,nodes.notebook_id AS notebookId,nodes.title,chunks.path AS relativePath,
+      chunks.heading,substr(chunks.body,1,350) AS excerpt,chunks.source_hash AS sourceHash,nodes.indexed_at AS indexedAt
+      FROM chunks JOIN nodes ON nodes.id=chunks.node_id WHERE chunks.rowid IN (${engine.rowids.map(() => '?').join(',')})`,
+      ...engine.rowids
     )
+    const byRowid = new Map(rows.map((row) => [Number(row.rowid), row]))
+    const chosen: Row[] = []
     const perNode = new Map<string, number>()
-    for (const row of rows) {
+    for (const rowid of engine.rowids) {
+      const row = byRowid.get(rowid)
+      if (!row) continue
       const nodeId = String(row.nodeId)
       if ((perNode.get(nodeId) ?? 0) >= 2) continue
-      if (result.items.length >= limit) {
+      if (chosen.length >= limit) {
         result.truncated = true
         break
       }
-      const item = { ...row, excerpt: String(row.excerpt).slice(0, 350) } as unknown as BrainSearchHit
-      if (!budget(result, item, maxChars)) break
       perNode.set(nodeId, (perNode.get(nodeId) ?? 0) + 1)
+      chosen.push(row)
+    }
+    const explained = engine.explain?.(chosen.map((row) => Number(row.rowid)))
+    if (explained) result.missingTerms = explained.missing
+    for (const { rowid, ...row } of chosen) {
+      const matchedTerms = explained?.matched.get(Number(rowid))
+      const excerpt = String(explained?.excerpts.get(Number(rowid)) ?? row.excerpt).slice(0, 350)
+      const item = { ...row, excerpt, ...(matchedTerms ? { matchedTerms } : {}) } as unknown as BrainSearchHit
+      if (!budget(result, item, maxChars)) break
       if (!result.indexedAt || String(row.indexedAt) > result.indexedAt) result.indexedAt = String(row.indexedAt)
     }
-    if (rows.length === 201) result.truncated = true
+    if (engine.rowids.length === 201) result.truncated = true
     return result
+  }
+
+  // Idiomas efectivos: el elegido para el cuaderno o, si es auto, el detectado al sincronizar.
+  // Sin cuaderno concreto valen los idiomas de todos los registrados.
+  private notebookLanguages(notebookId: string | null): LanguageCode[] {
+    const rows = notebookId
+      ? this.rows('SELECT language,detected_language FROM notebooks WHERE id=?', notebookId)
+      : this.rows('SELECT language,detected_language FROM notebooks')
+    const languages = new Set<LanguageCode>()
+    for (const row of rows) {
+      const language = isLanguage(row.language) ? row.language : row.detected_language
+      if (isLanguage(language)) languages.add(language)
+    }
+    return [...languages]
   }
 
   async read(request: BrainReadRequest): Promise<BrainReadResult> {
