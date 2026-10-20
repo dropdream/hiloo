@@ -65,9 +65,8 @@ test('los metadatos de una consulta larga respetan el presupuesto de caracteres'
     expect(JSON.stringify(empty).length).toBeLessThanOrEqual(512)
     expect(empty.truncated).toBe(true)
     expect(empty.items).toEqual([])
-    const mixed = await index.search({ query: `caja ${absent}`.slice(0, 512), notebookId: id, maxChars: 512 })
-    expect(JSON.stringify(mixed).length).toBeLessThanOrEqual(512)
-    expect(mixed.truncated).toBe(true)
+    // Hay un resultado, pero no cabe: error en vez de una lista vacía.
+    await expect(index.search({ query: `caja ${absent}`.slice(0, 512), notebookId: id, maxChars: 512 })).rejects.toThrow('Aumenta maxChars')
     const short = await index.search({ query: 'caja', notebookId: id })
     expect(short).toMatchObject({ truncated: false, terms: ['caja'], missingTerms: [] })
   } finally { index.close() }

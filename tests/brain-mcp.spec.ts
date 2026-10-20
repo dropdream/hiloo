@@ -127,6 +127,15 @@ test('el MCP respeta presupuestos y paginación, y rechaza argumentos inválidos
     const all = (await call<BrainSearchResult>(client, 'search', { query: 'evidencia', limit: 8, maxChars: 16000 })).data.items.map((item) => item.chunkId)
     const tight = await call<BrainReadResult>(client, 'read', { ids: all, maxChars: 4000 }, 4000)
     expect(tight.data.truncated).toBe(true)
+    // Si no cabe ni el primer elemento, error explícito: una lista vacía parecería «sin resultados».
+    for (const [name, args] of [
+      ['search', { query: 'evidencia', maxChars: 512 }],
+      ['read', { ids: all.slice(0, 1), maxChars: 512 }]
+    ] as const) {
+      const small = await call<{ error: string }>(client, name, args, 512)
+      expect(small.isError, name).toBe(true)
+      expect(small.data.error).toContain('Aumenta maxChars')
+    }
 
     for (const [name, args] of [
       ['search', { query: 'evidencia', limit: -1 }],

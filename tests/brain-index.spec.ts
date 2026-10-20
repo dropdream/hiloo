@@ -59,7 +59,7 @@ test('un scan parcial conserva notas ausentes y las lecturas verifican hash y l√
     expect(partial.removedNodes).toBe(0)
     expect((await index.search({ query: 'informacion' })).items[0].nodeId).toBe(hit.nodeId)
     expect((await index.read({ chunkIds: [hit.chunkId] })).items[0].status).toBe('unavailable')
-    expect(JSON.stringify(await index.search({ query: 'informacion', maxChars: 512 })).length).toBeLessThanOrEqual(512)
+    await expect(index.search({ query: 'informacion', maxChars: 512 })).rejects.toThrow('Aumenta maxChars')
     await fs.mkdir(join(root, 'subcarpeta'))
     await expect(index.registerNotebook(join(root, 'subcarpeta'))).rejects.toThrow('solapa')
   } finally { index.close() }

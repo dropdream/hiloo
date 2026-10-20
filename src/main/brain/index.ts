@@ -628,6 +628,7 @@ export class BrainIndex {
       consumed++
       if (!result.indexedAt || String(row.indexedAt) > result.indexedAt) result.indexedAt = String(row.indexedAt)
     }
+    if (chosen.length && !consumed) throw new Error('El presupuesto no permite devolver el primer resultado. Aumenta maxChars.')
     if (consumed < chosen.length) more = true
     if (more) result.truncated = true
     result.nextOffset = more && consumed > 0 && offset + consumed <= 200 ? offset + consumed : null
@@ -745,6 +746,8 @@ export class BrainIndex {
       }
       if (!budget(result, item, maxChars)) break
     }
+    if (result.truncated && !result.items.length)
+      throw new Error('El presupuesto no permite devolver el primer fragmento. Aumenta maxChars.')
     return result
   }
 
