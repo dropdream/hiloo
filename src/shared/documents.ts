@@ -26,6 +26,12 @@ export type RecentDocument = RecentEntry
 
 export type DocumentResult = { status: 'ok' } | { status: 'cancelled' } | { status: 'error'; message: string }
 
+// El proceso principal decide la acción; las notas las abre el renderer con openNote.
+export type DocumentLinkResult =
+  | DocumentResult
+  | { status: 'anchor'; anchor: string }
+  | { status: 'note'; path: string; anchor: string | null }
+
 export interface DocumentPrintSnapshot {
   documentId: string
   revision: number
@@ -45,6 +51,8 @@ export interface DocumentBridge {
   print(settings: PageSettings, snapshot?: DocumentPrintSnapshot): Promise<DocumentResult>
   update(id: string, content: string): Promise<DocumentResult>
   imageSource(id: string, source: string): Promise<string | null>
+  followLink(id: string, href: string): Promise<DocumentLinkResult>
+  openNote(id: string, path: string): Promise<DocumentResult>
   onDocument(callback: (document: DocumentSnapshot) => void): () => void
   onBusy(callback: (busy: boolean) => void): () => void
   onError(callback: (message: string) => void): () => void
