@@ -9,7 +9,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          'brain-cli': resolve('src/main/brain-cli.ts')
+          'brain-cli': resolve('src/main/brain-cli.ts'),
+          'brain-mcp': resolve('src/main/brain-mcp.ts')
         }
       }
     }
