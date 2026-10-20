@@ -1,5 +1,7 @@
 # hiloo
 
+Español · [English](README.en.md)
+
 Editor de notas Markdown para Windows. Escribes con formato, como en un procesador de textos, y hiloo guarda archivos `.md` normales en tu disco.
 
 - **Archivos locales.** Son archivos `.md` en una carpeta de tu PC. No hay cuenta ni nube, y puedes abrirlos con cualquier otro editor.
