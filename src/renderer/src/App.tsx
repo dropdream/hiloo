@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import type { DocumentResult } from '../../shared/documents'
+import type { DocumentResult, DocumentTabs, OpenTarget } from '../../shared/documents'
 import { defaultPageSettings, pageMarginMm, type PageSettings } from '../../shared/printing'
 import type { WindowTheme } from '../../shared/window'
 import type { WorkspaceSnapshot } from '../../shared/workspace'
@@ -13,6 +13,7 @@ import { PageControls } from './PageControls'
 import { PrintStyleDialog } from './PrintStyleDialog'
 import { NotebookIndexDialog } from './NotebookIndexDialog'
 import { Sidebar } from './Sidebar'
+import { TabBar } from './TabBar'
 import { ZoomBar, clampZoom, zoomStep } from './ZoomBar'
 import { useRecentList } from './use-recent-list'
 import { Icon } from './Icon'
@@ -34,14 +35,15 @@ const sourceFontPx = 14
 
 type WorkspaceAction =
   | { type: 'choose' | 'refresh' }
-  | { type: 'open' | 'recent' | 'recent-document'; id: string }
+  | { type: 'open'; id: string; target?: OpenTarget }
+  | { type: 'recent' | 'recent-document'; id: string }
   | { type: 'create'; parentId: string; name: string; kind: 'folder' | 'note' }
   | { type: 'index'; id: string; usage: NotebookIndexUsage }
-  | { type: 'note'; path: string; from: string }
+  | { type: 'note'; path: string; from: string; target: OpenTarget }
 
-// Punto de unión con las pestañas: 'new-tab' abrirá o enfocará la pestaña de la nota.
+// 'new-tab' abre la nota en otra pestaña o enfoca la que ya la muestra.
 export interface OpenNoteOptions {
-  target: 'new-tab' | 'current'
+  target: OpenTarget
   anchor?: string | null
   // Documento desde el que se pidió; si ya no es el actual, no se abre.
   from: string
@@ -77,11 +79,16 @@ export function App() {
   const [narrow, setNarrow] = useState(() => window.innerWidth <= 700)
   const sidebarButton = useRef<HTMLButtonElement>(null)
   const sidebarPanel = useRef<HTMLDivElement>(null)
-  const onNewDocument = useCallback(() => setBrainOpen(false), [])
+  const pendingPanelFocus = useRef(false)
+  const onNewDocument = useCallback(() => {
+    setBrainOpen(false)
+    setFocusDocument(true)
+  }, [])
   const session = useDocumentSession(onNewDocument)
   const {
     document,
     busy,
+    operating,
     operation,
     ready,
     error,
@@ -109,10 +116,43 @@ export function App() {
   const readyRef = useRef(ready)
   readyRef.current = ready
   const { printPreview, printing, print, closePrintPreview, confirmPrint } = useDocumentPrint(session, pageSettings)
+  const [tabs, setTabs] = useState<DocumentTabs | null>(null)
+  const scrollPositions = useRef(new Map<string, number>())
+
+  useEffect(() => {
+    let active = true
+    let received = false
+    const unsubscribe = window.documents.onTabs((next) => {
+      received = true
+      if (active) setTabs(next)
+    })
+    void window.documents
+      .tabs()
+      .then((next) => {
+        if (active && !received) setTabs(next)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
+
+  // Cada pestaña recupera su posición; el editor ya cambió de documento y un ancla se aplica después.
+  useEffect(() => {
+    const area = workspaceArea.current
+    if (area && document) area.scrollTop = scrollPositions.current.get(document.id) ?? 0
+  }, [document?.id])
+
+  useEffect(() => {
+    if (!tabs) return
+    for (const id of scrollPositions.current.keys())
+      if (!tabs.tabs.some((tab) => tab.id === id)) scrollPositions.current.delete(id)
+  }, [tabs])
 
   useEffect(() => {
     // Enfoca después de que React retire el fondo inerte del panel.
-    if (!focusDocument || busy || brainOpen || indexPrompt || (sidebarOpen && narrow) || (mode === 'visual' && !ready))
+    if (!focusDocument || busy || operating || brainOpen || indexPrompt || (sidebarOpen && narrow) || (mode === 'visual' && !ready))
       return
     const active = globalThis.document.activeElement
     const movedOn =
@@ -125,7 +165,7 @@ export function App() {
       else controller.current?.focus()
     }
     setFocusDocument(false)
-  }, [focusDocument, busy, brainOpen, indexPrompt, sidebarOpen, narrow, mode, ready, document?.id])
+  }, [focusDocument, busy, operating, brainOpen, indexPrompt, sidebarOpen, narrow, mode, ready, document?.id])
 
   useEffect(() => {
     let active = true
@@ -216,8 +256,15 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (!sidebarOpen) return
+    pendingPanelFocus.current = sidebarOpen
+  }, [sidebarOpen, workspace?.id])
+
+  useEffect(() => {
+    // Espera al final de la operación del renderer; si aparece el diálogo del índice, él decide el foco.
+    if (indexPrompt) pendingPanelFocus.current = false
+    if (!pendingPanelFocus.current || busy || operating) return
     const frame = requestAnimationFrame(() => {
+      pendingPanelFocus.current = false
       const panel = sidebarPanel.current
       const target =
         panel?.querySelector<HTMLInputElement>('input') ??
@@ -225,7 +272,7 @@ export function App() {
       target?.focus()
     })
     return () => cancelAnimationFrame(frame)
-  }, [sidebarOpen, workspace?.id])
+  }, [sidebarOpen, workspace?.id, busy, operating, indexPrompt])
 
   useEffect(() => {
     if (!sidebarOpen || !narrow) return
@@ -273,10 +320,10 @@ export function App() {
             result = await window.workspace.createIndex(request.id, request.usage)
             break
           case 'open':
-            result = await window.workspace.open(request.id)
+            result = await window.workspace.open(request.id, request.target)
             break
           case 'note':
-            result = await window.documents.openNote(request.from, request.path)
+            result = await window.documents.openNote(request.from, request.path, request.target)
             break
           case 'recent':
             result = await window.workspace.openRecent(request.id)
@@ -354,13 +401,13 @@ export function App() {
 
   useEffect(showAnchor, [showAnchor, ready, document?.id])
 
-  // Única entrada para abrir notas desde enlaces. Sin pestañas todavía, 'new-tab' abre en la vista actual.
+  // Única entrada para abrir notas desde enlaces.
   const openNote = useCallback(
     async (path: string, options: OpenNoteOptions) => {
       const { from } = options
       if (from !== documentId.current) return
       pendingAnchor.current = options.anchor ? { from, anchor: options.anchor } : null
-      if (await runWorkspace({ type: 'note', path, from })) showAnchor()
+      if (await runWorkspace({ type: 'note', path, from, target: options.target })) showAnchor()
       else pendingAnchor.current = null
     },
     [runWorkspace, showAnchor]
@@ -385,6 +432,39 @@ export function App() {
     },
     [controller, locked, openNote, setError]
   )
+
+  const runTab = useCallback(
+    async (action: 'activate' | 'close', id: string) => {
+      if (action === 'activate' && id === tabs?.activeId) {
+        setBrainOpen(false)
+        setFocusDocument(true)
+        return
+      }
+      if (!beginOperation('open')) return
+      focusOrigin.current = globalThis.document.activeElement
+      try {
+        const failure = await drainUpdates()
+        if (failure) throw new Error(failure)
+        const result =
+          action === 'activate' ? await window.documents.activate(id) : await window.documents.closeTab(id)
+        if (result.status === 'error') setError(result.message)
+        if (result.status === 'ok') {
+          setBrainOpen(false)
+          setFocusDocument(true)
+        }
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : 'No se pudo cambiar de pestaña.')
+      } finally {
+        endOperation()
+      }
+    },
+    [tabs?.activeId, beginOperation, drainUpdates, endOperation]
+  )
+
+  const openDocument = () => {
+    focusOrigin.current = globalThis.document.activeElement
+    void run('open')
+  }
 
   const closeIndexPrompt = useCallback(() => setIndexPrompt(null), [])
   const indexFallbackFocus = useCallback(() => {
@@ -430,6 +510,17 @@ export function App() {
       if (event.target instanceof Element && event.target.closest('dialog')) return
       if (!event.ctrlKey || event.altKey || event.isComposing) return
       const key = event.key.toLowerCase()
+      if (key === 'tab' || key === 'w') {
+        event.preventDefault()
+        if (!tabs || locked.current) return
+        const index = tabs.tabs.findIndex((tab) => tab.id === tabs.activeId)
+        if (key === 'w') void runTab('close', tabs.activeId)
+        else if (tabs.tabs.length > 1) {
+          const step = event.shiftKey ? -1 : 1
+          void runTab('activate', tabs.tabs[(index + step + tabs.tabs.length) % tabs.tabs.length].id)
+        }
+        return
+      }
       if (['+', '=', '-', '0'].includes(key)) {
         event.preventDefault()
         setFitZoom(false)
@@ -444,13 +535,13 @@ export function App() {
       }
       if (key !== 'o' && key !== 's' && key !== 'p') return
       event.preventDefault()
-      if (key === 'o') void run('open')
+      if (key === 'o') openDocument()
       else if (key === 'p') void print()
       else if (controller.current || modeRef.current === 'markdown') void run('save', event.shiftKey)
     }
     window.addEventListener('keydown', shortcut)
     return () => window.removeEventListener('keydown', shortcut)
-  }, [run, print])
+  }, [run, print, tabs, runTab])
 
   const status = busy
     ? operation === 'theme'
@@ -550,6 +641,7 @@ export function App() {
                 onChoose={() => void runWorkspace({ type: 'choose' })}
                 onRefresh={() => void runWorkspace({ type: 'refresh' })}
                 onOpen={(id) => void runWorkspace({ type: 'open', id })}
+                onOpenInNewTab={(id) => void runWorkspace({ type: 'open', id, target: 'new-tab' })}
                 onCreate={(parentId, name, kind) => runWorkspace({ type: 'create', parentId, name, kind })}
                 onBrain={() => void openBrain()}
                 onClose={closeSidebar}
@@ -558,6 +650,17 @@ export function App() {
           </>
         ) : null}
         <div className={styles.content} inert={sidebarOpen && narrow}>
+          {tabs ? (
+            <TabBar
+              tabs={tabs.tabs.map((tab) =>
+                tab.id === document?.id ? { ...tab, name: document.name, dirty: document.dirty } : tab
+              )}
+              activeId={tabs.activeId}
+              busy={busy}
+              onActivate={(id) => void runTab('activate', id)}
+              onClose={(id) => void runTab('close', id)}
+            />
+          ) : null}
           <div className={styles.documentControls} hidden={brainOpen}>
             <PageControls
               mode={mode}
@@ -582,7 +685,7 @@ export function App() {
               ready={ready && mode === 'visual'}
               canSave={ready || mode === 'markdown'}
               selection={selection}
-              onOpen={() => void run('open')}
+              onOpen={openDocument}
               onSave={(copy) => void run('save', copy)}
               onFormat={(action, level) => controller.current?.format(action, level)}
               onFocusEditor={() => controller.current?.focus()}
@@ -621,7 +724,11 @@ export function App() {
           ) : null}
           <main
             ref={workspaceArea}
+            id="document-workspace"
             className={styles.workspace}
+            onScroll={(event) => {
+              if (document) scrollPositions.current.set(document.id, event.currentTarget.scrollTop)
+            }}
             data-view={mode}
             data-paper-theme={paperTheme}
             data-brain-hidden={brainOpen || undefined}
@@ -636,8 +743,8 @@ export function App() {
                 >
                   <div className={styles.zoom} style={{ zoom: zoom / 100 }}>
                     <MarkdownEditor
-                      key={document.id}
                       documentId={document.id}
+                      openIds={tabs?.tabs.map((tab) => tab.id) ?? [document.id]}
                       source={document.content}
                       savedSource={document.savedContent}
                       onReady={editorReady}

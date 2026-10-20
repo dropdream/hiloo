@@ -10,6 +10,8 @@ function sameSource(left: string, right: string): boolean {
 export function useDocumentSession(onNewDocument: () => void) {
   const [document, setDocument] = useState<DocumentSnapshot | null>(null)
   const [busy, setBusy] = useState(false)
+  // Operación propia del renderer en curso, aunque el proceso principal ya haya avisado del fin.
+  const [operating, setOperating] = useState(false)
   const [operation, setOperation] = useState<'open' | 'save' | 'print' | 'theme'>('save')
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
@@ -20,6 +22,7 @@ export function useDocumentSession(onNewDocument: () => void) {
   const modeRef = useRef(mode)
   const sourceRef = useRef('')
   const controller = useRef<EditorController | null>(null)
+  const mounted = useRef(false)
   const current = useRef<DocumentSnapshot | null>(null)
   const locked = useRef(false)
   const printSession = useRef(false)
@@ -36,6 +39,7 @@ export function useDocumentSession(onNewDocument: () => void) {
   const beginOperation = useCallback(
     (action: typeof operation, clearError = true) => {
       if (locked.current) return false
+      setOperating(true)
       setOperation(action)
       setEditingLocked(true)
       if (clearError) setError('')
@@ -44,7 +48,10 @@ export function useDocumentSession(onNewDocument: () => void) {
     [setEditingLocked]
   )
 
-  const endOperation = useCallback(() => setEditingLocked(false), [setEditingLocked])
+  const endOperation = useCallback(() => {
+    setOperating(false)
+    setEditingLocked(false)
+  }, [setEditingLocked])
 
   const drainUpdates = useCallback(async () => {
     let last: Promise<unknown>
@@ -174,9 +181,13 @@ export function useDocumentSession(onNewDocument: () => void) {
   }, [])
 
   const editorReady = useCallback((next: EditorController) => {
+    // Al cambiar de documento el editor se reutiliza; el foco lo decide quien abrió.
+    const first = !mounted.current
+    mounted.current = true
     controller.current = next
     next.setEditable(!locked.current)
     setReady(next.visualReady())
+    if (!first) return
     if (modeRef.current === 'visual') next.focus()
     else sourceInput.current?.focus()
   }, [])
@@ -193,6 +204,7 @@ export function useDocumentSession(onNewDocument: () => void) {
   return {
     document,
     busy,
+    operating,
     operation,
     ready,
     error,

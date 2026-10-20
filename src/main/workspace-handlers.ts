@@ -28,7 +28,7 @@ export function createWorkspaceHandlers(
 ) {
   let workspace: WorkspaceSession | null = null
   let workspaceGeneration = 0
-  const { operation, confirmChanges, openPath, errorResult } = documents
+  const { operation, confirmChanges, confirmAll, focusPath, openPath, errorResult } = documents
   const emitWorkspace = () => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
       window.webContents.send('workspace:changed', workspace?.snapshot ?? null)
@@ -61,6 +61,15 @@ export function createWorkspaceHandlers(
         warnings: ['No se pudo actualizar el cuaderno. Comprueba la carpeta y vuelve a actualizar.']
       }
     }
+    emitWorkspace()
+  }
+
+  // Solo marca la nota actual con lo que ya está en memoria; no vuelve a explorar el cuaderno.
+  function selectCurrent(): void {
+    if (!workspace) return
+    const path = documents.current().path
+    const id = path ? workspace.ids.get(pathKey(path)) : undefined
+    workspace.snapshot = { ...workspace.snapshot, currentNoteId: id && workspace.paths.has(id) ? id : null }
     emitWorkspace()
   }
 
@@ -112,6 +121,7 @@ export function createWorkspaceHandlers(
   return {
     current: () => workspace,
     followDocument,
+    selectCurrent,
     openPath: openWorkspace,
     currentSnapshot: () => workspace?.snapshot ?? null,
     create: (parentId: unknown, value: unknown, kind: unknown) => {
@@ -134,14 +144,11 @@ export function createWorkspaceHandlers(
         const originalParent = parentId === owner.id ? owner.root : owner.folders.get(parentId)
         if (!originalParent) throw new Error('La carpeta seleccionada ya no está disponible.')
         await validateWorkspaceNote(owner, originalParent)
-        if (kind === 'note' && !(await confirmChanges())) return { status: 'cancelled' }
-        if (workspace !== owner)
-          throw new Error('El cuaderno cambió durante el guardado. Selecciona la carpeta de nuevo.')
         const revision = documents.current().revision
         owner.snapshot = await scanWorkspace(owner, documents.current().path)
         emitWorkspace()
         const parent = await workspaceCreationParent(owner, parentId, kind)
-        if (workspace !== owner || (kind === 'note' && documents.current().revision !== revision)) {
+        if (workspace !== owner) {
           throw new Error('Llegaron cambios durante la creación. La edición actual se conserva; vuelve a intentarlo.')
         }
         const target = join(parent, name)
@@ -159,7 +166,7 @@ export function createWorkspaceHandlers(
         try {
           await validateWorkspaceNote(owner, target)
           if (workspace !== owner) throw new Error('El cuaderno cambió. Actualízalo antes de continuar.')
-          if (kind === 'note') await openPath(target, revision, owner)
+          if (kind === 'note') await openPath(target, revision, owner, 'new-tab')
           else await refreshWorkspace()
           const createdId = owner.ids.get(pathKey(target))
           if (workspace !== owner || !createdId || !(kind === 'folder' ? owner.folders : owner.paths).has(createdId)) {
@@ -183,15 +190,12 @@ export function createWorkspaceHandlers(
         return { status: 'error', message: 'El cuaderno o el uso del índice no es válido.' }
       }
       return operation(async () => {
-        if (!(await confirmChanges())) return { status: 'cancelled' }
-        if (workspace !== owner)
-          throw new Error('El cuaderno cambió durante el guardado. Selecciona la carpeta de nuevo.')
         const revision = documents.current().revision
         owner.snapshot = await scanWorkspace(owner, documents.current().path)
         emitWorkspace()
         if (owner.snapshot.hasIndex) throw new Error('El cuaderno ya tiene un índice. No se sobrescribió.')
         const parent = await workspaceCreationParent(owner, owner.id, 'note')
-        if (workspace !== owner || documents.current().revision !== revision) {
+        if (workspace !== owner) {
           throw new Error('Llegaron cambios durante la creación. La edición actual se conserva; vuelve a intentarlo.')
         }
         const now = new Date()
@@ -217,7 +221,7 @@ export function createWorkspaceHandlers(
         try {
           await validateWorkspaceNote(owner, target)
           if (workspace !== owner) throw new Error('El cuaderno cambió. Actualízalo antes de continuar.')
-          await openPath(target, revision, owner)
+          await openPath(target, revision, owner, 'new-tab')
           const createdId = owner.ids.get(pathKey(target))
           if (workspace !== owner || !createdId || !owner.paths.has(createdId)) {
             throw new Error(
@@ -350,7 +354,7 @@ export function createWorkspaceHandlers(
       }),
     choose: () =>
       operation(async () => {
-        if (!(await confirmChanges())) return { status: 'cancelled' }
+        if (!(await confirmAll())) return { status: 'cancelled' }
         const revision = documents.current().revision
         const selection = await dialog.showOpenDialog(window, {
           title: 'Abrir cuaderno',
@@ -359,16 +363,18 @@ export function createWorkspaceHandlers(
         if (selection.canceled || !selection.filePaths[0]) return { status: 'cancelled' }
         return openWorkspace(selection.filePaths[0], revision)
       }),
-    open: (id: unknown) => {
+    open: (id: unknown, target: unknown = 'current') => {
       if (typeof id !== 'string' || id.length > 100 || !workspace?.paths.has(id))
         return { status: 'error', message: 'La nota seleccionada no pertenece al cuaderno actual.' }
+      if (target !== 'current' && target !== 'new-tab') return { status: 'error', message: 'El destino de apertura no es válido.' }
       return operation(async () => {
         const owner = workspace!
         const path = owner.paths.get(id)
         if (!path) throw new Error('La nota ya no está disponible. Actualizar el cuaderno.')
-        if (!(await confirmChanges())) return { status: 'cancelled' }
+        if (await focusPath(path)) return { status: 'ok' }
+        if (target === 'current' && !(await confirmChanges())) return { status: 'cancelled' }
         if (workspace !== owner) throw new Error('El cuaderno cambió durante el guardado. Selecciona la nota de nuevo.')
-        return openPath(path, documents.current().revision, owner)
+        return openPath(path, documents.current().revision, owner, target)
       })
     }
   }

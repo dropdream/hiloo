@@ -9,6 +9,10 @@
   --hiloo-selection: #387096;
   --hiloo-on-accent: #203f5d;
   --hiloo-ui-font: 'Segoe UI', system-ui, sans-serif;
+  --hiloo-tabs-background: var(--hiloo-window-background);
+  --hiloo-tab-active-background: var(--hiloo-bar);
+  --hiloo-tab-dirty: var(--hiloo-accent);
+  --hiloo-tab-height: 30px;
   --hiloo-document-font: 'Segoe UI', system-ui, sans-serif;
   --hiloo-document-text: #edf3f8;
   --hiloo-document-size: 17px;

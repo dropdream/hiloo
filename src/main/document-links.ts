@@ -93,10 +93,11 @@ export function createLinkHandlers(documents: DocumentActions, workspace: () => 
   }
 
   // La ruta llega del renderer: se valida otra vez antes de abrir.
-  function openNote(id: unknown, path: unknown): Promise<DocumentResult> | DocumentResult {
+  function openNote(id: unknown, path: unknown, target: unknown = 'current'): Promise<DocumentResult> | DocumentResult {
     const current = documents.current()
     if (
       id !== current.id ||
+      (target !== 'current' && target !== 'new-tab') ||
       !current.path ||
       typeof path !== 'string' ||
       path.length > maxLinkLength ||
@@ -107,10 +108,12 @@ export function createLinkHandlers(documents: DocumentActions, workspace: () => 
     const origin = current.path
     return documents.operation(async () => {
       const owner = rootFor(origin)
-      const target = await locate(path, owner?.root ?? dirname(origin))
-      if (!(await documents.confirmChanges())) return { status: 'cancelled' }
-      if (documents.current().path !== origin) throw new Error('La nota cambió antes de seguir el enlace. Vuelve a intentarlo.')
-      return documents.openPath(target, documents.current().revision, owner ?? undefined)
+      const located = await locate(path, owner?.root ?? dirname(origin))
+      // En pestaña nueva la nota de origen se conserva tal cual; no hay nada que confirmar.
+      if (target === 'current' && !(await documents.confirmChanges())) return { status: 'cancelled' }
+      if (documents.current().id !== id || documents.current().path !== origin)
+        throw new Error('La nota cambió antes de seguir el enlace. Vuelve a intentarlo.')
+      return documents.openPath(located, documents.current().revision, owner ?? undefined, target)
     })
   }
 

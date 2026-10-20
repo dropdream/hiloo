@@ -62,13 +62,13 @@ En la vista con formato, un enlace se sigue con **Ctrl+clic**; el clic simple so
 
 | Enlace | Acción |
 | --- | --- |
-| Nota relativa `.md` o `.markdown`, como `../Dominio/clientes.md`, `lista%20de%20clientes.md` o `<otra nota.md>` | Se abre en la misma ventana. La ruta se calcula desde la carpeta de la nota actual. |
+| Nota relativa `.md` o `.markdown`, como `../Dominio/clientes.md`, `lista%20de%20clientes.md` o `<otra nota.md>` | Se abre en una [pestaña](cuadernos-y-cerebro.md#pestañas) nueva, o se enfoca la pestaña si la nota ya está abierta. La ruta se calcula desde la carpeta de la nota actual. |
 | Ancla `#seccion` o `nota.md#seccion` | Se desplaza al título correspondiente, en la nota actual o después de abrir la de destino. Las anclas siguen el criterio de GitHub: minúsculas, sin signos de puntuación y con guiones en lugar de espacios; los títulos repetidos reciben `-1`, `-2`… |
 | `http:`, `https:` o `mailto:` | Se abre con el navegador o el programa de correo predeterminado. |
 | Otro archivo local o carpeta | Solo se muestra en el Explorador de Windows; hiloo nunca lo abre ni lo ejecuta. |
 | Cualquier otro protocolo, rutas absolutas (`C:\…`, `/…`) o UNC (`\\servidor\…`) | Se ignora. |
 
-Si la nota tiene cambios sin guardar, se pregunta como al abrir otra nota desde la barra lateral. Un destino inexistente, una sección que no aparece o un enlace que sale del cuaderno muestran un aviso; la nota actual se conserva. La nota debe estar guardada para seguir enlaces relativos. Si se abre otra nota mientras se resuelve un enlace, ese enlace ya no se sigue.
+La nota de origen y sus cambios sin guardar se conservan en su pestaña, así que no se pregunta nada. Un destino inexistente, una sección que no aparece o un enlace que sale del cuaderno muestran un aviso; la nota actual se conserva. La nota debe estar guardada para seguir enlaces relativos. Si se abre otra nota mientras se resuelve un enlace, ese enlace ya no se sigue.
 
 El proceso principal decide la acción: recibe la dirección sin interpretar, decodifica `%xx`, rechaza unidades, flujos NTFS (`:`), rutas absolutas y UNC, y comprueba con la ruta real, incluidos enlaces simbólicos y *junctions*, que el destino quede dentro del cuaderno o, sin cuaderno, de la carpeta de la nota. La ventana sigue sin navegar ni abrir ventanas nuevas.
 

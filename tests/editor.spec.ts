@@ -162,21 +162,26 @@ test('listas, cursiva, cita, enlaces sin navegación y validación de IPC', asyn
   expect(application.windows()).toHaveLength(1)
 })
 
-test('guardar antes de abrir y cancelar el selector mantiene el documento guardado', async ({ application, editorPage: page }, testInfo) => {
+test('Abrir pregunta por los cambios después de elegir el archivo; cancelar el selector no guarda nada', async ({ application, editorPage: page }, testInfo) => {
   const editor = page.getByRole('textbox', { name: 'Documento Markdown' })
   const path = testInfo.outputPath('antes-de-abrir.md')
+  const other = testInfo.outputPath('otro.md')
   await fs.mkdir(dirname(path), { recursive: true })
+  await fs.writeFile(other, '# Otro\n')
   await editor.fill('Conservar antes de abrir')
   await chooseChanges(application, 0)
   await chooseSave(application, path)
   await chooseOpen(application)
   await page.getByRole('button', { name: 'Abrir', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('Guardado')
-  await expect(editor).toHaveText('Conservar antes de abrir')
-  expect(await fs.readFile(path, 'utf8')).toContain('Conservar antes de abrir')
-  await editor.press('Control+End')
-  await page.keyboard.insertText(' y seguir editando.')
+  await expect(page.getByRole('button', { name: 'Abrir', exact: true })).toBeEnabled()
   await expect(page.getByRole('status')).toHaveText('Cambios sin guardar')
+  await expect(editor).toHaveText('Conservar antes de abrir')
+  await expect(fs.access(path)).rejects.toThrow()
+  // Al elegir otro archivo sí se pregunta, y Guardar conserva la edición antes de reemplazarla.
+  await chooseOpen(application, other)
+  await page.getByRole('button', { name: 'Abrir', exact: true }).click()
+  await expect(editor).toHaveText('Otro')
+  expect(await fs.readFile(path, 'utf8')).toContain('Conservar antes de abrir')
 })
 
 test('atajos de título, párrafo y lista numerada corresponden a las herramientas', async ({ editorPage: page }) => {

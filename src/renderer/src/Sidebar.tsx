@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { RecentDocument } from '../../shared/documents'
 import type { RecentWorkspace, WorkspaceNote, WorkspaceSnapshot } from '../../shared/workspace'
 import type { RecentList } from './use-recent-list'
@@ -20,6 +21,7 @@ interface Props {
   onChoose(): void
   onRefresh(): void
   onOpen(id: string): void
+  onOpenInNewTab(id: string): void
   onCreate(parentId: string, name: string, kind: 'folder' | 'note'): Promise<boolean>
   onBrain(): void
   onClose(): void
@@ -170,9 +172,10 @@ interface TreeProps {
   busy: boolean
   onToggle(folder: NoteFolder): void
   onOpen(id: string): void
+  onOpenInNewTab(id: string): void
 }
 
-function NoteTree({ folder, collapsed, currentNoteId, selectedParentId, busy, onToggle, onOpen }: TreeProps) {
+function NoteTree({ folder, collapsed, currentNoteId, selectedParentId, busy, onToggle, onOpen, onOpenInNewTab }: TreeProps) {
   return (
     <ul className={styles.notes}>
       {[...folder.folders.values()]
@@ -204,6 +207,7 @@ function NoteTree({ folder, collapsed, currentNoteId, selectedParentId, busy, on
                   busy={busy}
                   onToggle={onToggle}
                   onOpen={onOpen}
+                  onOpenInNewTab={onOpenInNewTab}
                 />
               ) : null}
             </li>
@@ -213,19 +217,30 @@ function NoteTree({ folder, collapsed, currentNoteId, selectedParentId, busy, on
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }))
         .map((note) => (
           <li key={note.id}>
-            <button
-              type="button"
-              className={styles.noteRow}
-              disabled={busy}
-              onClick={() => onOpen(note.id)}
-              aria-label={`Abrir nota: ${note.relativePath}`}
-              aria-current={currentNoteId === note.id ? 'page' : undefined}
-              title={note.relativePath}
-            >
-              <span className={styles.disclosureSpace} />
-              <Icon name="page" />
-              <span>{note.name}</span>
-            </button>
+            <ContextMenu.Root>
+              <ContextMenu.Trigger asChild disabled={busy}>
+                <button
+                  type="button"
+                  className={styles.noteRow}
+                  disabled={busy}
+                  onClick={() => onOpen(note.id)}
+                  aria-label={`Abrir nota: ${note.relativePath}`}
+                  aria-current={currentNoteId === note.id ? 'page' : undefined}
+                  title={note.relativePath}
+                >
+                  <span className={styles.disclosureSpace} />
+                  <Icon name="page" />
+                  <span>{note.name}</span>
+                </button>
+              </ContextMenu.Trigger>
+              <ContextMenu.Portal>
+                <ContextMenu.Content className={styles.contextMenu} aria-label={`Acciones de ${note.name}`}>
+                  <ContextMenu.Item className={styles.contextItem} onSelect={() => onOpenInNewTab(note.id)}>
+                    Abrir en nueva pestaña
+                  </ContextMenu.Item>
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            </ContextMenu.Root>
           </li>
         ))}
     </ul>
@@ -247,6 +262,7 @@ export function Sidebar({
   onChoose,
   onRefresh,
   onOpen,
+  onOpenInNewTab,
   onCreate,
   onBrain,
   onClose
@@ -597,6 +613,7 @@ export function Sidebar({
                 busy={blocked}
                 onToggle={toggleFolder}
                 onOpen={onOpen}
+                onOpenInNewTab={onOpenInNewTab}
               />
             ) : (
               <p className={styles.empty}>

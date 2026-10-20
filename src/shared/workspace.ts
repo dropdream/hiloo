@@ -1,4 +1,4 @@
-import type { DocumentResult, RecentEntry } from './documents'
+import type { DocumentResult, OpenTarget, RecentEntry } from './documents'
 import type { NotebookIndexUsage } from './notebook-index'
 
 export interface WorkspaceNote {
@@ -47,7 +47,7 @@ export interface WorkspaceBridge {
   onRecentChange(callback: (workspaces: RecentWorkspace[]) => void): () => void
   choose(): Promise<DocumentResult>
   refresh(): Promise<DocumentResult>
-  open(noteId: string): Promise<DocumentResult>
+  open(noteId: string, target?: OpenTarget): Promise<DocumentResult>
   preview(noteId: string): Promise<WorkspacePreviewResult>
   linkTo(noteId: string): Promise<WorkspaceLinkResult>
   create(parentId: string, name: string, kind: 'folder' | 'note'): Promise<DocumentResult>

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DocumentBridge, DocumentSnapshot, RecentDocument } from '../shared/documents'
+import type { DocumentBridge, DocumentSnapshot, DocumentTabs, RecentDocument } from '../shared/documents'
 import type { SettingsBridge } from '../shared/settings'
 import type { AppearanceBridge } from '../shared/window'
 import type { RecentWorkspace, WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
@@ -21,7 +21,7 @@ const api: DocumentBridge = {
   update: (id, content) => ipcRenderer.invoke('document:update', id, content),
   imageSource: (id, source) => ipcRenderer.invoke('document:image-source', id, source),
   followLink: (id, href) => ipcRenderer.invoke('document:follow-link', id, href),
-  openNote: (id, path) => ipcRenderer.invoke('document:open-note', id, path),
+  openNote: (id, path, target = 'current') => ipcRenderer.invoke('document:open-note', id, path, target),
   onDocument: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, document: DocumentSnapshot) => callback(document)
     ipcRenderer.on('document:changed', listener)
@@ -44,6 +44,14 @@ const api: DocumentBridge = {
     }
     ipcRenderer.on('document:flush', listener)
     return () => void ipcRenderer.removeListener('document:flush', listener)
+  },
+  tabs: () => ipcRenderer.invoke('document:tabs'),
+  activate: (id) => ipcRenderer.invoke('document:activate', id),
+  closeTab: (id) => ipcRenderer.invoke('document:close-tab', id),
+  onTabs: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, tabs: DocumentTabs) => callback(tabs)
+    ipcRenderer.on('document:tabs-changed', listener)
+    return () => void ipcRenderer.removeListener('document:tabs-changed', listener)
   }
 }
 
@@ -73,7 +81,7 @@ const workspace: WorkspaceBridge = {
   },
   choose: () => ipcRenderer.invoke('workspace:choose'),
   refresh: () => ipcRenderer.invoke('workspace:refresh'),
-  open: (noteId) => ipcRenderer.invoke('workspace:open', noteId),
+  open: (noteId, target = 'current') => ipcRenderer.invoke('workspace:open', noteId, target),
   preview: (noteId) => ipcRenderer.invoke('workspace:preview', noteId),
   linkTo: (noteId) => ipcRenderer.invoke('workspace:link-to', noteId),
   create: (parentId, name, kind) => ipcRenderer.invoke('workspace:create', parentId, name, kind),
