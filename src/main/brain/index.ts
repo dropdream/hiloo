@@ -8,6 +8,8 @@ import type {
   BrainLinkRequest,
   BrainLinkResult,
   BrainNotebook,
+  BrainOutlineRequest,
+  BrainOutlineResult,
   BrainReadItem,
   BrainReadRequest,
   BrainReadResult,
@@ -87,9 +89,9 @@ export class BrainIndex {
   private readonly token = randomUUID()
   private readonly engine: SearchEngine
 
-  constructor(filePath: string, options: { engine?: SearchEngineFactory } = {}) {
-    if (filePath !== ':memory:') mkdirSync(dirname(filePath), { recursive: true })
-    this.db = openDatabase(filePath)
+  constructor(filePath: string, options: { engine?: SearchEngineFactory; readOnly?: boolean } = {}) {
+    if (filePath !== ':memory:' && !options.readOnly) mkdirSync(dirname(filePath), { recursive: true })
+    this.db = openDatabase(filePath, { readOnly: options.readOnly })
     this.engine = (options.engine ?? ((db) => new FtsEngine(db)))(this.db)
   }
 
@@ -556,8 +558,9 @@ export class BrainIndex {
     if (!request || typeof request.query !== 'string' || request.query.length > 512)
       throw new Error('La búsqueda debe tener hasta 512 caracteres.')
     const limit = integer(request.limit, 6, 1, 20)
+    const offset = integer(request.offset, 0, 0, 200)
     const maxChars = integer(request.maxChars, 6000, 512, 16000)
-    const result: BrainSearchResult = { items: [], truncated: false, indexedAt: null }
+    const result: BrainSearchResult = { items: [], truncated: false, nextOffset: null, indexedAt: null }
     let where = 'nodes.deleted=0'
     const args: SQLInputValue[] = []
     let scoped: string | null = null
@@ -596,29 +599,37 @@ export class BrainIndex {
     const byRowid = new Map(rows.map((row) => [Number(row.rowid), row]))
     const chosen: Row[] = []
     const perNode = new Map<string, number>()
+    let position = 0
+    let more = engine.rowids.length === 201
     for (const rowid of engine.rowids) {
       const row = byRowid.get(rowid)
       if (!row) continue
       const nodeId = String(row.nodeId)
       if ((perNode.get(nodeId) ?? 0) >= 2) continue
+      // Las páginas anteriores cuentan para el máximo por nota.
+      perNode.set(nodeId, (perNode.get(nodeId) ?? 0) + 1)
+      if (position++ < offset) continue
       if (chosen.length >= limit) {
-        result.truncated = true
+        more = true
         break
       }
-      perNode.set(nodeId, (perNode.get(nodeId) ?? 0) + 1)
       chosen.push(row)
     }
     const explained = engine.explain?.(chosen.map((row) => Number(row.rowid)))
     if (explained) result.missingTerms = explained.missing
     trimTerms(result, maxChars)
+    let consumed = 0
     for (const { rowid, ...row } of chosen) {
       const matchedTerms = explained?.matched.get(Number(rowid))
       const excerpt = String(explained?.excerpts.get(Number(rowid)) ?? row.excerpt).slice(0, 350)
       const item = { ...row, excerpt, ...(matchedTerms ? { matchedTerms } : {}) } as unknown as BrainSearchHit
       if (!budget(result, item, maxChars)) break
+      consumed++
       if (!result.indexedAt || String(row.indexedAt) > result.indexedAt) result.indexedAt = String(row.indexedAt)
     }
-    if (engine.rowids.length === 201) result.truncated = true
+    if (consumed < chosen.length) more = true
+    if (more) result.truncated = true
+    result.nextOffset = more && consumed > 0 && offset + consumed <= 200 ? offset + consumed : null
     return result
   }
 
@@ -634,6 +645,42 @@ export class BrainIndex {
       if (isLanguage(language)) languages.add(language)
     }
     return [...languages]
+  }
+
+  // Secciones indexadas de una nota, para leer solo la necesaria.
+  async outline(request: BrainOutlineRequest): Promise<BrainOutlineResult> {
+    this.assertOpen()
+    id(request?.nodeId)
+    const limit = integer(request.limit, 50, 1, 200)
+    const offset = integer(request.offset, 0, 0, 1000000)
+    const maxChars = integer(request.maxChars, 6000, 512, 16000)
+    const node = this.row('SELECT id,kind,title,path,source_hash,indexed_at FROM nodes WHERE id=? AND deleted=0', request.nodeId)
+    if (!node || node.kind !== 'note') throw new Error('El nodo no es una nota del catálogo.')
+    const rows = this.rows(
+      'SELECT id AS chunkId,heading,end_offset-start_offset AS chars FROM chunks WHERE node_id=? ORDER BY ordinal LIMIT ? OFFSET ?',
+      request.nodeId,
+      limit + 1,
+      offset
+    )
+    const result: BrainOutlineResult = {
+      nodeId: String(node.id),
+      title: String(node.title),
+      relativePath: String(node.path),
+      sourceHash: String(node.source_hash ?? ''),
+      indexedAt: node.indexed_at as string | null,
+      items: [],
+      truncated: rows.length > limit,
+      nextOffset: null
+    }
+    let consumed = 0
+    for (const row of rows.slice(0, limit)) {
+      if (!budget(result, { chunkId: String(row.chunkId), heading: String(row.heading), chars: Number(row.chars) }, maxChars)) break
+      consumed++
+    }
+    if (result.truncated && consumed === 0)
+      throw new Error('El presupuesto no permite devolver la primera sección. Aumenta maxChars.')
+    result.nextOffset = result.truncated ? offset + consumed : null
+    return result
   }
 
   async read(request: BrainReadRequest): Promise<BrainReadResult> {

@@ -2,9 +2,17 @@ import { DatabaseSync } from 'node:sqlite'
 
 export const schemaVersion = 3
 
-export function openDatabase(path: string): DatabaseSync {
-  const db = new DatabaseSync(path, { timeout: 150, enableForeignKeyConstraints: true, allowExtension: false })
+export function openDatabase(path: string, options: { readOnly?: boolean } = {}): DatabaseSync {
+  const db = new DatabaseSync(path, { timeout: 150, enableForeignKeyConstraints: true, allowExtension: false, readOnly: options.readOnly === true })
   try {
+    // Solo lectura: no migra ni cambia el modo de diario de una base que usa la app.
+    if (options.readOnly) {
+      db.exec('PRAGMA busy_timeout = 150; PRAGMA query_only = ON')
+      const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
+      if (version > schemaVersion) throw new Error('El índice pertenece a una versión más reciente de hiloo.')
+      if (version < schemaVersion) throw new Error('El índice usa un esquema anterior. Abre hiloo o sincroniza un cuaderno para actualizarlo.')
+      return db
+    }
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 150; PRAGMA cache_size = -4096; PRAGMA wal_autocheckpoint = 1000')
     const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
     if (version > schemaVersion) throw new Error('El índice pertenece a una versión más reciente de hiloo.')
