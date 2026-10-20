@@ -34,7 +34,7 @@ La clase repetida iguala la especificidad del contenedor privado: cargar esa reg
 
 ## Formatos y guardado
 
-- La barra permite párrafos, títulos 1–6, negrita, cursiva, tachado, listas con viñetas/numeradas, tareas, citas, tablas, imágenes, enlaces, deshacer y rehacer. También se conservan código inline, bloques de código sin atributos adicionales, saltos y separadores compatibles. Los enlaces se insertan, editan y quitan desde un diálogo; no navegan al pulsarlos.
+- La barra permite párrafos, títulos 1–6, negrita, cursiva, tachado, listas con viñetas/numeradas, tareas, citas, tablas, imágenes, enlaces, deshacer y rehacer. También se conservan código inline, bloques de código sin atributos adicionales, saltos y separadores compatibles. Los enlaces se insertan, editan y quitan desde un diálogo; se siguen con Ctrl+clic, como se describe en [Seguir enlaces](#seguir-enlaces).
 - Las tablas usan GFM y conservan la alineación de sus columnas; las tablas anchas tienen desplazamiento horizontal propio. Tab y Mayús+Tab recorren las celdas; Enter al final permite continuar fuera de la tabla. Las tareas conservan su estado marcado o pendiente. Las imágenes conservan origen, texto alternativo y título. Se pueden usar URL HTTP(S) o rutas relativas como `imagenes/foto.png`. Para mostrar imágenes locales el Markdown debe estar guardado: solo se leen archivos PNG, JPEG, GIF, WebP, BMP o AVIF de hasta 10 MiB dentro de su carpeta o subcarpetas. No se cargan rutas absolutas, `file:`, `data:` ni archivos que escapen de esa carpeta mediante `..` o enlaces simbólicos. Los SVG locales no se cargan. Una imagen ausente conserva su referencia para poder corregirla; guardar en otra carpeta vuelve a resolver las rutas desde el nuevo destino, sin copiar imágenes.
 - Se aceptan archivos `.md` o `.markdown` UTF-8, con o sin BOM, hasta 2 MiB. No se aceptan enlaces simbólicos. El pegado importa únicamente texto plano; arrastrar contenido al editor está desactivado.
 - Sin edición, Guardar deja intactos los bytes originales; Guardar como los copia. Deshacer hasta el estado guardado permite recuperar esa condición. Después de editar se serializa todo el documento: pueden cambiar títulos Setext a `#`, delimitadores `__` a `**`, viñetas, indentación, escapes, líneas vacías y salto final. Se conserva el BOM y se usan CRLF si el original los tenía; archivos con saltos mixtos se normalizan. El formato visual y el texto admitido se preservan, no la ortografía exacta de Markdown.
@@ -55,6 +55,22 @@ Texto con **negrita**, *cursiva* y `código`.
 
 [Referencia](https://example.com)
 ```
+
+## Seguir enlaces
+
+En la vista con formato, un enlace se sigue con **Ctrl+clic**; el clic simple solo coloca el cursor. Al pasar el ratón aparece la pista «Ctrl+clic para abrir».
+
+| Enlace | Acción |
+| --- | --- |
+| Nota relativa `.md` o `.markdown`, como `../Dominio/clientes.md`, `lista%20de%20clientes.md` o `<otra nota.md>` | Se abre en la misma ventana. La ruta se calcula desde la carpeta de la nota actual. |
+| Ancla `#seccion` o `nota.md#seccion` | Se desplaza al título correspondiente, en la nota actual o después de abrir la de destino. Las anclas siguen el criterio de GitHub: minúsculas, sin signos de puntuación y con guiones en lugar de espacios; los títulos repetidos reciben `-1`, `-2`… |
+| `http:`, `https:` o `mailto:` | Se abre con el navegador o el programa de correo predeterminado. |
+| Otro archivo local o carpeta | Solo se muestra en el Explorador de Windows; hiloo nunca lo abre ni lo ejecuta. |
+| Cualquier otro protocolo, rutas absolutas (`C:\…`, `/…`) o UNC (`\\servidor\…`) | Se ignora. |
+
+Si la nota tiene cambios sin guardar, se pregunta como al abrir otra nota desde la barra lateral. Un destino inexistente, una sección que no aparece o un enlace que sale del cuaderno muestran un aviso; la nota actual se conserva. La nota debe estar guardada para seguir enlaces relativos. Si se abre otra nota mientras se resuelve un enlace, ese enlace ya no se sigue.
+
+El proceso principal decide la acción: recibe la dirección sin interpretar, decodifica `%xx`, rechaza unidades, flujos NTFS (`:`), rutas absolutas y UNC, y comprueba con la ruta real, incluidos enlaces simbólicos y *junctions*, que el destino quede dentro del cuaderno o, sin cuaderno, de la carpeta de la nota. La ventana sigue sin navegar ni abrir ventanas nuevas.
 
 ## Flujos Mermaid
 
