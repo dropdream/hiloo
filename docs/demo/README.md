@@ -7,6 +7,7 @@ Las capturas de `docs/images/` salen de este cuaderno. Para repetirlas:
 ```powershell
 npm run build
 npx playwright test --config docs/demo/capturas/playwright.config.ts
+python docs/demo/capturas/reducir.py .verification/capturas/png docs/images
 ```
 
-El script copia el cuaderno a `C:\hiloo-demo\Proyecto de ejemplo`, para que no aparezcan rutas personales, y deja los PNG en `.verification/capturas/png`. Las imágenes publicadas se redujeron después a 1600 px de ancho y 256 colores.
+El script copia el cuaderno a `C:\hiloo-demo\Proyecto de ejemplo`, para que no aparezcan rutas personales, y no borra esa copia al terminar. Deja los PNG originales en `.verification/capturas/png`; `reducir.py` los pasa a 1600 px y 256 colores y necesita Pillow (`pip install pillow`). `npm test` no ejecuta este script, porque solo busca pruebas en `tests/`.
