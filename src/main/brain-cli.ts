@@ -1,6 +1,7 @@
 import { resolve, join } from 'node:path'
 import { homedir } from 'node:os'
 import { BrainIndex } from './brain'
+import { bounded } from './brain/output'
 import type { BrainLanguage, BrainRelatedRequest } from '../shared/brain'
 
 const help = {
@@ -10,7 +11,8 @@ const help = {
     sync: '<notebook-id>',
     language: '<notebook-id> auto|es|en|pt|fr|de|it',
     catalog: '[--limit <1..100>] [--offset <number>]',
-    search: '<query> [--notebook <id>] [--ancestor <id>] [--limit <1..20>]',
+    search: '<query> [--notebook <id>] [--ancestor <id>] [--limit <1..20>] [--offset <0..200>]',
+    outline: '<note-id> [--limit <1..200>] [--offset <number>]',
     read: '<chunk-id> [...] [--expected-hash <chunk-id>=<hash>]',
     related: '<node-id> [--direction in|out|both] [--type hierarchy|link|manual] [--limit <1..100>] [--offset <number>]',
     link: '<source-node-id> <target-node-id> [--label <text>]',
@@ -18,7 +20,7 @@ const help = {
     status: ''
   },
   options:
-    '--max-chars <512..16000> bounds JSON output (read allows 32000); --offset <0..1000000>; --db or ' +
+    '--max-chars <512..16000> bounds JSON output (read allows 32000); --offset continues from nextOffset; --db or ' +
       'HILOO_BRAIN_DB overrides %APPDATA%/hiloo/brain.sqlite',
   search:
     'Keywords are OR-combined and ranked by BM25; stopwords of the notebook and query languages are dropped; ' +
@@ -59,17 +61,10 @@ function integer(value: string | undefined, fallback: number, minimum: number, m
   return parsed
 }
 
-// El límite incluye metadatos y caracteres escapados del JSON.
 function print(value: unknown, maxChars: number): void {
-  let result: unknown = Array.isArray(value) ? { items: value, truncated: false } : value
-  let serialized = JSON.stringify(result)
-  // Recortar resultados aquí invalidaría nextOffset.
-  if (serialized.length > maxChars) {
-    result = { error: 'El resultado supera el presupuesto. Amplía --max-chars o reduce la consulta.', truncated: true }
-    serialized = JSON.stringify(result)
-    process.exitCode = 1
-  }
-  process.stdout.write(serialized + (serialized.length < maxChars ? '\n' : ''))
+  const { text, overflow } = bounded(value, maxChars, 'Amplía --max-chars o reduce la consulta.')
+  if (overflow) process.exitCode = 1
+  process.stdout.write(text + (text.length < maxChars ? '\n' : ''))
 }
 
 async function main(): Promise<void> {
@@ -87,7 +82,8 @@ async function main(): Promise<void> {
     status: [],
     link: ['label'],
     unlink: [],
-    search: ['notebook', 'ancestor', 'limit'],
+    search: ['notebook', 'ancestor', 'limit', 'offset'],
+    outline: ['limit', 'offset'],
     read: ['expected-hash'],
     related: ['direction', 'type', 'limit', 'offset']
   }
@@ -142,8 +138,12 @@ async function main(): Promise<void> {
           notebookId: option('notebook'),
           ancestorId: option('ancestor'),
           limit: integer(option('limit'), 6, 1, 20),
+          offset: integer(option('offset'), 0, 0, 200),
           maxChars
         })
+        break
+      case 'outline':
+        result = await index.outline({ nodeId: args[0], limit: integer(option('limit'), 50, 1, 200), offset: integer(option('offset'), 0, 0, 1000000), maxChars })
         break
       case 'read': {
         const expectedHashes: Record<string, string> = Object.create(null) as Record<string, string>

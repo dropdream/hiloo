@@ -10,13 +10,17 @@ export class FtsEngine implements SearchEngine {
 
   constructor(private readonly db: DatabaseSync) {}
 
-  search({ query, languages, scope }: EngineRequest): EngineResult {
+  search({ query, languages, scope, perNode }: EngineRequest): EngineResult {
     const { expression, terms } = ftsQuery(query, languages)
     if (!terms.length) return { rowids: [], terms }
+    // El rowid desempata para que las páginas sean estables.
     const rows = this.db.prepare(
-      `SELECT chunks.rowid AS id FROM chunks_fts JOIN chunks ON chunks.rowid=chunks_fts.rowid JOIN nodes ON nodes.id=chunks.node_id
-      WHERE chunks_fts MATCH ? AND ${scope.where} AND ${ranking} ORDER BY rank LIMIT 201`
-    ).all(expression, ...scope.args)
+      `WITH hits AS (SELECT chunks.rowid AS id,chunks.node_id AS node,rank AS score FROM chunks_fts
+        JOIN chunks ON chunks.rowid=chunks_fts.rowid JOIN nodes ON nodes.id=chunks.node_id
+        WHERE chunks_fts MATCH ? AND ${scope.where} AND ${ranking})
+      SELECT id FROM (SELECT id,score,row_number() OVER (PARTITION BY node ORDER BY score,id) AS n FROM hits)
+      WHERE n<=? ORDER BY score,id LIMIT 201`
+    ).all(expression, ...scope.args, perNode)
     const explain = (rowids: number[]) => {
       const matched = new Map<number, string[]>(rowids.map((rowid) => [rowid, []]))
       const missing: string[] = []

@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { test, expect } from './fixtures'
-import type { BrainCatalogResult, BrainLinkResult, BrainNotebook, BrainReadResult, BrainRelatedResult, BrainSearchResult, BrainSyncResult } from '../src/shared/brain'
+import type { BrainCatalogResult, BrainLinkResult, BrainNotebook, BrainOutlineResult, BrainReadResult, BrainRelatedResult, BrainSearchResult, BrainSyncResult } from '../src/shared/brain'
 
 const execute = promisify(execFile)
 
@@ -53,6 +53,8 @@ test('la IA recupera secciones y conecta carpetas entre cuadernos sin abrir la i
   expect(read.items[0].status).toBe('ok')
   expect(read.items[0].content).toContain('SQLite')
   expect(read.items[0].sourceHash).toBe(hit.sourceHash)
+  const outline = (await command<BrainOutlineResult>(database, 'outline', hit.nodeId)).data
+  expect(outline.items.map((item) => item.heading)).toEqual(['Decisión técnica', 'Decisión técnica / Motivos'])
 
   const explicit = (await command<BrainRelatedResult>(database, 'related', hit.nodeId, '--type', 'link', '--direction', 'out')).data
   expect(explicit.items.some((item) => item.notebookId === second.id && item.title === 'Guía')).toBe(true)

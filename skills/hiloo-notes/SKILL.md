@@ -1,6 +1,6 @@
 ---
 name: hiloo-notes
-description: Guarda, organiza y consulta conocimiento de proyectos en cuadernos Markdown de hiloo mediante su índice local SQLite y CLI. Úsalo cuando el usuario quiera trabajar con sus notas de hiloo como segundo cerebro.
+description: Guarda, organiza y consulta conocimiento de proyectos en cuadernos Markdown de hiloo mediante su índice local SQLite, su servidor MCP o su CLI. Úsalo cuando el usuario quiera trabajar con sus notas de hiloo como segundo cerebro.
 ---
 
 # Notas de hiloo
@@ -9,7 +9,9 @@ Trabaja sobre los cuadernos elegidos por el usuario. Los archivos Markdown conti
 
 ## Preparar acceso
 
-Localiza la instalación de desarrollo desde `HILOO_ROOT`, la ruta proporcionada por el usuario o el repositorio hiloo del contexto. Verifica `scripts/brain.cjs` y `out/main/brain-cli.js`. Usa rutas absolutas: `node "<hiloo-root>/scripts/brain.cjs" <comando>`. No presupongas que el cuaderno es el repositorio de hiloo. Si falta el ejecutable compilado, sigue las instrucciones del repositorio para construirlo; si falta la instalación o no puedes identificar el catálogo correcto, solicita ese dato concreto.
+**Si el cliente tiene el servidor MCP de hiloo** (herramientas `catalog`, `search`, `outline`, `read`, `related` y `sync`), úsalo para consultar: no necesitas la CLI ni el repositorio. Empieza con `catalog`. Los parámetros equivalen a las opciones de la CLI descritas en las referencias (`notebook`, `ancestor`, `limit`, `offset`, `maxChars`, `expectedHashes`). El MCP es de solo lectura: para registrar cuadernos, fijar el idioma o crear y borrar enlaces manuales usa la CLI; para escribir notas, tus herramientas de archivos. Configuración: [docs/mcp.md](../../docs/mcp.md).
+
+Sin MCP, localiza la instalación de desarrollo desde `HILOO_ROOT`, la ruta proporcionada por el usuario o el repositorio hiloo del contexto. Verifica `scripts/brain.cjs` y `out/main/brain-cli.js`. Usa rutas absolutas: `node "<hiloo-root>/scripts/brain.cjs" <comando>`. No presupongas que el cuaderno es el repositorio de hiloo. Si falta el ejecutable compilado, sigue las instrucciones del repositorio para construirlo; si falta la instalación o no puedes identificar el catálogo correcto, solicita ese dato concreto.
 
 Usa `--db "<base>"` o `HILOO_BRAIN_DB` cuando el usuario/contexto identifique una base. La predeterminada en Windows es `%APPDATA%/hiloo/brain.sqlite`; un perfil personalizado de hiloo tiene otra ubicación.
 

@@ -11,10 +11,12 @@ export interface EngineRequest {
   query: string
   languages: LanguageCode[]
   scope: SearchScope
+  // Máximo de fragmentos por nota; se aplica antes del límite para que una nota grande no llene la lista.
+  perNode: number
 }
 
 export interface EngineResult {
-  // `chunks.rowid` ordenados de mejor a peor; como mucho 201.
+  // `chunks.rowid` ordenados de mejor a peor, con orden estable; como mucho 201 y perNode por nota.
   rowids: number[]
   // Opcional: un motor sin términos (p. ej., semántico) no los informa.
   terms?: string[]
