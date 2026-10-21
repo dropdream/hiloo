@@ -5,6 +5,7 @@ dist/
 .verification/
 test-results/
 playwright-report/
+worktrees/
 *.log
 *.tsbuildinfo
 .env
