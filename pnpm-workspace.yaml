@@ -1,0 +1,5 @@
+# Solo ajustes de pnpm. Electron se descarga en el postinstall de package.json.
+# Estos scripts no hacen falta: esbuild ya trae su binario y Squirrel no se usa.
+allowBuilds:
+  esbuild: false
+  electron-winstaller: false

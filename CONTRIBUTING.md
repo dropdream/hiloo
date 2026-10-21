@@ -11,6 +11,8 @@ npm ci
 npm run dev
 ```
 
+Con pnpm: `pnpm install` y `pnpm dev`. No subas `pnpm-lock.yaml`; el lockfile es `package-lock.json`.
+
 Antes de abrir una PR, comprueba que compila y que pasan las pruebas locales:
 
 ```powershell

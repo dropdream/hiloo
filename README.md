@@ -83,6 +83,8 @@ npm ci        # instala dependencias y Electron
 npm run dev   # abre hiloo en modo desarrollo
 ```
 
+Con pnpm funciona igual: `pnpm install` y `pnpm dev`. El lockfile del repositorio es `package-lock.json`. Si instalaste antes de este cambio y `dev` dice `Electron uninstall`, descarga Electron con `node node_modules/electron/install.js`.
+
 Para empezar con notas de ejemplo, pulsa **Abrir cuaderno**, elige [`docs/demo/Proyecto de ejemplo`](docs/demo/Proyecto%20de%20ejemplo) y abre `plan.md`. Después pulsa **Cerebro**. Es el mismo cuaderno de las capturas.
 
 Otros comandos:
