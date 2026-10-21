@@ -17,6 +17,7 @@
     "brain": "node scripts/brain.cjs",
     "pack:win": "npm run build && electron-builder --win --x64 --dir --publish never",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "postinstall": "install-electron",
     "pretest": "install-electron",
     "test": "playwright test",
     "test:packaged": "playwright test --project=packaged"

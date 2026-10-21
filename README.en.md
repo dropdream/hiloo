@@ -55,6 +55,8 @@ npm ci        # install dependencies and Electron
 npm run dev   # start hiloo in development mode
 ```
 
+pnpm works too: `pnpm install` and `pnpm dev`. The repository lockfile is `package-lock.json`. If you installed before this change and `dev` reports `Electron uninstall`, download Electron with `node node_modules/electron/install.js`.
+
 For sample notes, click **Abrir cuaderno** (Open notebook) and choose [`docs/demo/Proyecto de ejemplo`](docs/demo/Proyecto%20de%20ejemplo).
 
 ## Documentation
