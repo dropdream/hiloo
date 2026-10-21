@@ -57,7 +57,7 @@ const syncBudget = 4000
 const reading = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
 const server = new McpServer(
-  { name: 'hiloo', version: '0.1.0' },
+  { name: 'hiloo', version: '0.1.1' },
   {
     instructions:
       'Local Markdown notes indexed by hiloo, read-only. Flow: catalog → search → outline/read → related. ' +
