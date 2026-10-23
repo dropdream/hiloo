@@ -5,6 +5,7 @@ import { titleBarHeight, windowBackground, windowControlsColor } from '../shared
 import { attachDocuments } from './documents'
 import { attachAppearance } from './appearance'
 import { attachSettings } from './settings'
+import { attachCloud } from './cloud'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -41,6 +42,7 @@ function createWindow(): void {
   attachDocuments(window, url)
   attachAppearance(window, url)
   attachSettings(window, url)
+  attachCloud(window, url)
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {

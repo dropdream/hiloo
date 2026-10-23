@@ -4,7 +4,7 @@ Español · [English](README.en.md)
 
 Editor de notas Markdown para Windows. Escribes con formato, como en un procesador de textos, y hiloo guarda archivos `.md` normales en tu disco.
 
-- **Archivos locales.** Son archivos `.md` en una carpeta de tu PC. No hay cuenta ni nube, y puedes abrirlos con cualquier otro editor.
+- **Archivos locales.** Son archivos `.md` en una carpeta de tu PC. No necesitas cuenta, y puedes abrirlos con cualquier otro editor. La conexión con la nube es opcional y experimental.
 - **Cuadernos y conexiones.** Una carpeta es un cuaderno. Enlaza notas entre sí y mira esas conexiones en un grafo.
 - **Preparado para IA.** Una IA externa, como Claude, Cursor o Codex, puede buscar y leer tus notas mediante un servidor MCP, una CLI local y la skill `hiloo-notes`.
 
@@ -74,6 +74,26 @@ La skill [`hiloo-notes`](skills/hiloo-notes/SKILL.md) enseña a la IA a usar el 
 
 Comandos, límites y funcionamiento del índice: [Índice para IA](docs/cerebro-sqlite.md).
 
+## Nube (experimental)
+
+hiloo empieza a conectarse con una nube compartida por organizaciones. Por ahora solo inicia sesión y hace una lectura de prueba; todavía no sincroniza notas.
+
+- **Inicio de sesión con Auth0.** **Cuenta en la nube** abre el navegador para entrar con Auth0. hiloo usa el flujo para apps de escritorio (código de autorización con PKCE) y guarda la sesión cifrada con la protección de datos de Windows.
+- **Supabase con RLS por organización.** Supabase acepta el token de Auth0 y sus reglas de seguridad por fila (RLS) dejan leer solo los datos de las organizaciones de cada persona.
+- **Estado.** La prueba 0c está verificada con un inicio de sesión real: un usuario lee las filas de su organización y no las de otra. Es experimental y puede cambiar.
+
+Para activarla al compilar, crea un archivo `.env` en la raíz del repositorio con estas variables (no se suben a git):
+
+| Variable | Para qué |
+| --- | --- |
+| `SUPABASE_URL` | URL del proyecto de Supabase. |
+| `SUPABASE_PUBLISHABLE_KEY` | Clave publicable de Supabase. |
+| `SUPABASE_JWKS_URL` | Claves públicas del proyecto; la app no la necesita. |
+| `AUTH0_DOMAIN` | Dominio del tenant de Auth0. |
+| `AUTH0_CLIENT_ID` | Client ID de la aplicación nativa de Auth0. |
+
+`SUPABASE_SECRET_KEY` puede estar en el mismo `.env` para herramientas de administración, pero **la app no la usa** y nunca entra al paquete. Sin el `.env`, hiloo funciona igual y el diálogo indica que la nube no está configurada. Detalles, configuración de Auth0 y pruebas: [Nube con Auth0](docs/nube-auth0.md).
+
 ## Probarlo
 
 Necesitas Windows de 64 bits, Node.js 22.13+ o 24+ y npm. Desde la carpeta del repositorio:
@@ -109,6 +129,7 @@ Hay trabajo en marcha, sin fecha, en enlaces que se abren al pulsarlos, pestaña
 - [Tema de la interfaz](docs/tema-interfaz.md)
 - [Índice para IA](docs/cerebro-sqlite.md)
 - [Servidor MCP](docs/mcp.md)
+- [Nube con Auth0 (experimental)](docs/nube-auth0.md)
 - [Guía de desarrollo](docs/desarrollo.md)
 - [Alcance implementado y pendiente](STACK.md)
 

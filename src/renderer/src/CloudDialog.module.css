@@ -1,0 +1,66 @@
+.dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  padding: 22px 24px;
+  overflow: auto;
+  border: 1px solid var(--hiloo-border);
+  border-radius: 8px;
+  color: var(--hiloo-text);
+  background: var(--hiloo-bar);
+  box-shadow: 0 18px 60px #0005;
+  font: 13px/1.5 var(--hiloo-ui-font);
+}
+.dialog::backdrop { background: #08172699; }
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.state { margin: 0 0 8px; }
+.message {
+  margin: 12px 0 0;
+  padding: 10px;
+  border-left: 2px solid var(--hiloo-accent);
+  background: var(--hiloo-active);
+}
+.probe {
+  margin-top: 12px;
+  color: var(--hiloo-muted);
+}
+.probe p,
+.probe ul { margin: 0 0 6px; }
+.dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.dialog footer .secondary { margin-right: auto; }
+.dialog button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--hiloo-border);
+  border-radius: 4px;
+  color: var(--hiloo-text);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.dialog button:hover:not(:disabled) { background: var(--hiloo-hover); }
+.dialog button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.dialog .primary {
+  background: var(--hiloo-accent);
+  border-color: var(--hiloo-accent);
+  color: var(--hiloo-on-accent);
+  font-weight: 600;
+}
+.dialog .primary:hover:not(:disabled) {
+  background: var(--hiloo-accent);
+  filter: brightness(1.1);
+}
+@media print {
+  .dialog { display: none !important; }
+}

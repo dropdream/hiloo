@@ -30,6 +30,7 @@
     "@radix-ui/react-select": "2.3.7",
     "@radix-ui/react-toolbar": "1.1.19",
     "@radix-ui/react-tooltip": "1.2.16",
+    "@supabase/supabase-js": "2.118.0",
     "cytoscape": "3.34.3",
     "mermaid": "12.1.0",
     "pdfjs-dist": "6.4.299",

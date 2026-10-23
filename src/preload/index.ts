@@ -4,6 +4,7 @@ import type { SettingsBridge } from '../shared/settings'
 import type { AppearanceBridge } from '../shared/window'
 import type { RecentWorkspace, WorkspaceBridge, WorkspaceSnapshot } from '../shared/workspace'
 import type { BrainBridge } from '../shared/brain'
+import type { CloudBridge } from '../shared/cloud'
 
 const api: DocumentBridge = {
   current: () => ipcRenderer.invoke('document:current'),
@@ -107,3 +108,13 @@ const brain: BrainBridge = {
 }
 
 contextBridge.exposeInMainWorld('brain', brain)
+
+const cloud: CloudBridge = {
+  status: () => ipcRenderer.invoke('cloud:status'),
+  signIn: () => ipcRenderer.invoke('cloud:sign-in'),
+  cancelSignIn: () => ipcRenderer.invoke('cloud:cancel-sign-in'),
+  signOut: () => ipcRenderer.invoke('cloud:sign-out'),
+  probe: () => ipcRenderer.invoke('cloud:probe')
+}
+
+contextBridge.exposeInMainWorld('cloud', cloud)
