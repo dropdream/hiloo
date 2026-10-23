@@ -3,6 +3,7 @@ import type { AppearanceBridge } from '../../shared/window'
 import type { WorkspaceBridge } from '../../shared/workspace'
 import type { BrainBridge } from '../../shared/brain'
 import type { SettingsBridge } from '../../shared/settings'
+import type { CloudBridge } from '../../shared/cloud'
 
 declare global {
   interface Window {
@@ -11,5 +12,6 @@ declare global {
     workspace: WorkspaceBridge
     brain: BrainBridge
     settings: SettingsBridge
+    cloud: CloudBridge
   }
 }
