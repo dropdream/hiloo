@@ -9,6 +9,7 @@ import { MarkdownEditor } from './editor'
 import { useDocumentSession } from './use-document-session'
 import { useDocumentPrint } from './use-document-print'
 import { EditorToolbar } from './Toolbar'
+import { AccountButton } from './AccountButton'
 import { PageControls } from './PageControls'
 import { PrintStyleDialog } from './PrintStyleDialog'
 import { NotebookIndexDialog } from './NotebookIndexDialog'
@@ -587,6 +588,7 @@ export function App() {
           <span className={styles.dot} data-dirty={document?.dirty || undefined} />
           {status}
         </span>
+        <AccountButton />
       </header>
       <style>{`@page {
         size: ${pageSettings.widthMm}mm ${pageSettings.heightMm}mm;

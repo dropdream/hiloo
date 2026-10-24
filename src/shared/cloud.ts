@@ -6,7 +6,7 @@ export const auth0CallbackPath = '/callback'
 export type CloudStatus =
   | { state: 'unconfigured' }
   | { state: 'signed-out' }
-  | { state: 'signed-in'; name: string | null; email: string | null }
+  | { state: 'signed-in'; name: string | null; email: string | null; picture: string | null }
 
 export type CloudResult<T> = { status: 'ok'; value: T } | { status: 'cancelled' } | { status: 'error'; message: string }
 

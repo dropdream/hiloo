@@ -4,10 +4,11 @@ import styles from './CloudDialog.module.css'
 
 interface Props {
   onClose(): void
+  onStatus(status: CloudStatus): void
 }
 
 // Prueba 0c: inicio de sesión con Auth0 y lectura de Supabase con RLS.
-export function CloudDialog({ onClose }: Props) {
+export function CloudDialog({ onClose, onStatus }: Props) {
   const id = useId()
   const dialog = useRef<HTMLDialogElement>(null)
   const [status, setStatus] = useState<CloudStatus | null>(null)
@@ -47,13 +48,16 @@ export function CloudDialog({ onClose }: Props) {
     const result = await window.cloud.signIn().finally(() => { signingIn.current = false })
     if (result.status === 'ok') {
       setStatus(result.value)
+      onStatus(result.value)
       setMessage('')
     } else setMessage(result.status === 'cancelled' ? 'Inicio de sesión cancelado.' : result.message)
   })
 
   const signOut = () => run(async () => {
     setProbe(null)
-    setStatus(await window.cloud.signOut())
+    const next = await window.cloud.signOut()
+    setStatus(next)
+    onStatus(next)
   })
 
   const read = () => run(async () => {
