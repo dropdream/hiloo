@@ -24,6 +24,16 @@ function readConfig(): CloudConfig | null {
 // Margen para no mandar a Supabase un token a punto de vencer.
 const renewMargin = 60_000
 
+// Solo https: el renderer carga la foto directo de su origen, sin pasar por el proceso principal.
+function safePicture(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 2048) return null
+  try {
+    return new URL(value).protocol === 'https:' ? value : null
+  } catch {
+    return null
+  }
+}
+
 class CloudSession {
   private tokens: Auth0Tokens | null = null
   private renewing: Promise<string | null> | null = null
@@ -36,7 +46,8 @@ class CloudSession {
 
   status(): CloudStatus {
     if (!this.tokens) return { state: 'signed-out' }
-    return { state: 'signed-in', name: this.tokens.claims.name ?? null, email: this.tokens.claims.email ?? null }
+    const { name, email, picture } = this.tokens.claims
+    return { state: 'signed-in', name: name ?? null, email: email ?? null, picture: safePicture(picture) }
   }
 
   // Al arrancar solo hay refresh token guardado; el ID token se pide de nuevo.

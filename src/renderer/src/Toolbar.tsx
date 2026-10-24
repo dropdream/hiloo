@@ -6,7 +6,6 @@ import type { WorkspaceSnapshot } from '../../shared/workspace'
 import { Icon, type IconName } from './Icon'
 import type { Format, SelectionState, TableAction } from './editor'
 import { InsertDialog, type InsertKind } from './InsertDialog'
-import { CloudDialog } from './CloudDialog'
 import styles from './Toolbar.module.css'
 
 interface ToolProps {
@@ -69,7 +68,6 @@ interface Props {
 export function EditorToolbar({ busy, ready, canSave, selection, workspace, onOpen, onSave, onFormat, onFocusEditor, ...actions }: Props) {
   const disabled = busy || !ready
   const [dialog, setDialog] = useState<{ kind: InsertKind; selection: SelectionState } | null>(null)
-  const [cloud, setCloud] = useState(false)
   const openDialog = (kind: InsertKind) => setDialog({ kind, selection })
   return (
     <Tooltip.Provider delayDuration={450}>
@@ -137,10 +135,6 @@ export function EditorToolbar({ busy, ready, canSave, selection, workspace, onOp
           <Tool name="Deshacer" shortcut="Ctrl+Z" icon="undo" disabled={disabled || !selection.undo} onClick={() => onFormat('undo')} />
           <Tool name="Rehacer" shortcut="Ctrl+Y" icon="redo" disabled={disabled || !selection.redo} onClick={() => onFormat('redo')} />
         </div>
-        <Toolbar.Separator className={styles.separator} />
-        <div className={styles.group}>
-          <Tool name="Cuenta en la nube" icon="cloud" opensDialog onClick={() => setCloud(true)} />
-        </div>
       </Toolbar.Root>
       {dialog ? (
         <InsertDialog
@@ -155,7 +149,6 @@ export function EditorToolbar({ busy, ready, canSave, selection, workspace, onOp
           }}
         />
       ) : null}
-      {cloud ? <CloudDialog onClose={() => setCloud(false)} /> : null}
     </Tooltip.Provider>
   )
 }

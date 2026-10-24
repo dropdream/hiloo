@@ -4,10 +4,10 @@ Estado: **prueba 0c**, experimental. hiloo inicia sesión con Auth0 y lee de Sup
 
 ## Cómo funciona
 
-1. **Cuenta en la nube** (barra de herramientas) → **Iniciar sesión** abre el navegador del sistema en Auth0.
+1. El botón de cuenta de la barra superior (ícono genérico sin sesión; foto del perfil con sesión, o las iniciales si la foto falla) abre **Cuenta en la nube** → **Iniciar sesión** abre el navegador del sistema en Auth0.
 2. hiloo usa Authorization Code con PKCE y recibe el código en `http://127.0.0.1:47615/callback` (o `47616` si el primero está ocupado). No usa el Client Secret.
 3. Auth0 entrega un ID token y un refresh token. El ID token vive solo en memoria; el refresh token se guarda cifrado con DPAPI (`safeStorage`) en `%APPDATA%\hiloo\auth0-session.bin`.
-4. El proceso principal crea el cliente de `@supabase/supabase-js` con la opción `accessToken`, que entrega el ID token y lo renueva un minuto antes de que venza. El renderer nunca ve los tokens.
+4. El proceso principal crea el cliente de `@supabase/supabase-js` con la opción `accessToken`, que entrega el ID token y lo renueva un minuto antes de que venza. El renderer nunca ve los tokens: solo recibe nombre, correo y la URL `https:` de la foto (`picture`).
 5. Supabase valida el token con el JWKS del tenant (integración Third-Party Auth de Auth0) y las políticas RLS filtran por el `sub` del token y su `iss`.
 
 **Cerrar sesión** borra el archivo y revoca el refresh token en Auth0.
