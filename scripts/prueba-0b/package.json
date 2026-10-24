@@ -1,0 +1,17 @@
+{
+  "name": "hiloo-prueba-0b",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Prueba 0b: pide un token al emisor de agentes y prueba RLS y Realtime",
+  "type": "module",
+  "scripts": {
+    "claves": "node claves.mjs",
+    "emisor-estatico": "node emisor-estatico.mjs",
+    "prueba": "node prueba-0b.mjs"
+  },
+  "dependencies": {
+    "@dcp-ai/sdk": "^2.1.1",
+    "@supabase/supabase-js": "^2.118.0",
+    "jose": "^6.2.13"
+  }
+}

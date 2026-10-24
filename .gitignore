@@ -12,3 +12,4 @@ worktrees/
 .env.*
 !.env.example
 modelo_negocio.md
+scripts/prueba-0b/.remoto/

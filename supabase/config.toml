@@ -412,3 +412,10 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Emisor OIDC de agentes (prueba 0b). Sin verify_jwt: Supabase lee el documento OIDC y el JWKS
+# sin cabeceras, y los agentes se autentican por dentro con la firma DCP.
+[functions.emisor-agentes]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/emisor-agentes/index.ts"

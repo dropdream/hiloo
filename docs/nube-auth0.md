@@ -30,3 +30,13 @@ En Supabase, `supabase/config.toml` activa `[auth.third_party.auth0]` para el st
 - Migración `*_revocar_rls_auto_enable.sql`: quita `EXECUTE` a `anon` y `authenticated` sobre `public.rls_auto_enable()`, la función del trigger de evento que activa RLS en tablas nuevas de `public`. El trigger no necesita ese permiso.
 - Pruebas pgTAP: `supabase db start` y después `supabase test db`.
 - Pruebas de la app: `tests/cloud.spec.ts` simula Auth0 dentro del proceso principal.
+
+## Emisor de agentes (prueba 0b)
+
+Los agentes no entran por Auth0: la Edge Function `supabase/functions/emisor-agentes` es un emisor OIDC propio. Sirve `/.well-known/openid-configuration` y `/.well-known/jwks.json`, y entrega tokens ES256 de 10 minutos (`iss`, `sub`, `aud`, `exp`, `iat`, `role`, `org_id`, `agente_id`, `tipo=agente`) a cambio de un desafío firmado con la clave Ed25519 del pasaporte DCP (`generateRegistrationPoP` del SDK de DCP; la función verifica con `verifyRegistrationPoP`).
+
+- La clave de firma del emisor vive solo en los secretos de la función (`EMISOR_ISSUER`, `EMISOR_CLAVE_JWK`). En local va en `supabase/functions/.env`, ignorado; se genera con `node scripts/prueba-0b/claves.mjs`.
+- La función se despliega sin verificar JWT (`verify_jwt = false` en `config.toml`): Supabase lee el documento OIDC sin cabeceras y la autenticación va por dentro.
+- En el proyecto remoto, el emisor se registra en el panel (Authentication → Sign In / Providers → Third-Party Auth → Custom OIDC) con la URL de la función; no hay opción en la CLI.
+- Migración `*_prueba_0b_emisor_agentes.sql`: `agentes`, `pruebas_0b`, los desafíos en `privado`, las RPC del emisor y las políticas RLS y de `realtime.messages` que leen `org_id` del token solo si el `iss` está en `privado.emisores_agentes`.
+- `scripts/prueba-0b/prueba-0b.mjs` pide un token con una firma DCP y prueba RLS y los canales privados de Realtime. El encabezado del script explica cómo correrlo en local y contra el remoto.
