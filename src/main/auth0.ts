@@ -15,6 +15,7 @@ export interface IdTokenClaims {
   nonce?: string
   name?: string
   email?: string
+  picture?: string
 }
 
 export interface Auth0Tokens {
