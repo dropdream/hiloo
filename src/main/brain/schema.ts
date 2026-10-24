@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 
-export const schemaVersion = 3
+export const schemaVersion = 4
 
 export function openDatabase(path: string, options: { readOnly?: boolean } = {}): DatabaseSync {
   const db = new DatabaseSync(path, { timeout: 150, enableForeignKeyConstraints: true, allowExtension: false, readOnly: options.readOnly === true })
@@ -96,6 +97,20 @@ export function openDatabase(path: string, options: { readOnly?: boolean } = {})
       }
       db.exec('COMMIT')
     }
+    // Etapa 1 (identidad y escritura local): solo tablas nuevas, no toca las existentes ni el índice.
+    if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 4) {
+      db.exec('BEGIN IMMEDIATE')
+      if (Number(db.prepare('PRAGMA user_version').get()!.user_version) < 4) {
+        // Idempotente: una base degradada a mano puede conservar las tablas.
+        if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizaciones'").get()) db.exec(schemaV4)
+        // Una organización local por base; en la etapa 3 se reemplaza por la remota.
+        if (!db.prepare('SELECT 1 FROM organizaciones LIMIT 1').get())
+          db.prepare("INSERT INTO organizaciones(id,nombre,tipo,creada_en) VALUES(?,?,'local',?)")
+            .run(randomUUID(), 'Organización local', new Date().toISOString())
+        db.exec('PRAGMA user_version = 4')
+      }
+      db.exec('COMMIT')
+    }
     return db
   } catch (error) {
     if (db.isTransaction) db.exec('ROLLBACK')
@@ -103,3 +118,88 @@ export function openDatabase(path: string, options: { readOnly?: boolean } = {})
     throw error
   }
 }
+
+// Esquema 4: identidad DCP y escritura local (docs/etapa-1-contrato.md). Fechas ISO 8601 en UTC,
+// ids UUID en texto, JSON en columnas TEXT. Las tablas con org_id calcan la sección 8 del diseño
+// para subir a Supabase sin traducciones. intenciones, commits y escrituras son de solo agregar.
+const schemaV4 = `
+  CREATE TABLE organizaciones (
+    id TEXT PRIMARY KEY, nombre TEXT NOT NULL,
+    tipo TEXT NOT NULL CHECK(tipo IN ('local','remota')), creada_en TEXT NOT NULL
+  ) STRICT;
+  CREATE TABLE humanos (
+    id TEXT PRIMARY KEY, auth0_sub TEXT UNIQUE, nombre TEXT NOT NULL, creado_en TEXT NOT NULL
+  ) STRICT;
+  CREATE TABLE personas (
+    id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES organizaciones(id),
+    nombre_plantilla TEXT NOT NULL, rol TEXT NOT NULL,
+    permisos TEXT NOT NULL,
+    nivel_max TEXT NOT NULL CHECK(nivel_max IN ('routine','standard','elevated','maximum')),
+    personalidad TEXT, version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
+    firma_admin TEXT, creada_en TEXT NOT NULL, actualizada_en TEXT NOT NULL,
+    UNIQUE(org_id,nombre_plantilla), UNIQUE(id,org_id)
+  ) STRICT;
+  CREATE TABLE agentes (
+    id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES organizaciones(id),
+    persona_id TEXT NOT NULL, persona_version INTEGER NOT NULL,
+    nombre TEXT NOT NULL, avatar TEXT, color TEXT, restricciones TEXT,
+    responsable_id TEXT REFERENCES humanos(id),
+    clave_publica TEXT NOT NULL, kid TEXT NOT NULL UNIQUE,
+    clave_pq_publica TEXT, kid_pq TEXT,
+    pasaporte TEXT NOT NULL,
+    secreto_hash TEXT,
+    org_origen TEXT, emitido_por TEXT, firma_emision TEXT,
+    vence_en TEXT, revocado_en TEXT, revocado_desde TEXT, revocado_motivo TEXT,
+    creado_en TEXT NOT NULL,
+    FOREIGN KEY(persona_id,org_id) REFERENCES personas(id,org_id),
+    UNIQUE(org_id,nombre), UNIQUE(id,org_id)
+  ) STRICT;
+  CREATE INDEX agentes_org ON agentes(org_id,revocado_en);
+  CREATE TABLE intenciones (
+    id TEXT PRIMARY KEY, org_id TEXT NOT NULL, agente_id TEXT NOT NULL,
+    repo TEXT, rama TEXT, accion TEXT NOT NULL, recurso TEXT NOT NULL,
+    nivel TEXT NOT NULL CHECK(nivel IN ('routine','standard','elevated','maximum')),
+    payload TEXT NOT NULL, payload_hash TEXT NOT NULL, firma TEXT NOT NULL,
+    creada_en TEXT NOT NULL,
+    FOREIGN KEY(agente_id,org_id) REFERENCES agentes(id,org_id), UNIQUE(id,org_id)
+  ) STRICT;
+  CREATE INDEX intenciones_agente ON intenciones(org_id,agente_id,creada_en);
+  CREATE INDEX intenciones_rama ON intenciones(repo,rama);
+  CREATE TABLE commits (
+    id TEXT PRIMARY KEY, org_id TEXT NOT NULL, repo TEXT NOT NULL, sha TEXT NOT NULL,
+    patch_id TEXT, rama TEXT, agente_id TEXT NOT NULL, intencion_id TEXT,
+    fecha_commit TEXT NOT NULL, registrado_en TEXT NOT NULL, firma TEXT,
+    FOREIGN KEY(agente_id,org_id) REFERENCES agentes(id,org_id),
+    FOREIGN KEY(intencion_id,org_id) REFERENCES intenciones(id,org_id),
+    UNIQUE(repo,sha), UNIQUE(id,org_id)
+  ) STRICT;
+  CREATE INDEX commits_intencion ON commits(intencion_id);
+  CREATE INDEX commits_agente ON commits(org_id,agente_id,registrado_en);
+  CREATE TABLE escrituras (
+    id TEXT PRIMARY KEY, org_id TEXT NOT NULL,
+    notebook_id TEXT NOT NULL REFERENCES notebooks(id), node_id TEXT REFERENCES nodes(id),
+    ruta TEXT NOT NULL,
+    herramienta TEXT NOT NULL CHECK(herramienta IN ('create_note','replace_section','append_section')),
+    cliente TEXT NOT NULL, agente_id TEXT, intencion_id TEXT,
+    hash_antes TEXT, hash_despues TEXT NOT NULL, firma TEXT, creada_en TEXT NOT NULL,
+    FOREIGN KEY(agente_id,org_id) REFERENCES agentes(id,org_id),
+    FOREIGN KEY(intencion_id,org_id) REFERENCES intenciones(id,org_id),
+    UNIQUE(id,org_id)
+  ) STRICT;
+  CREATE INDEX escrituras_nota ON escrituras(node_id,creada_en);
+  CREATE INDEX escrituras_agente ON escrituras(org_id,agente_id,creada_en);
+  CREATE TABLE bloqueos (
+    artefacto_key TEXT PRIMARY KEY, org_id TEXT NOT NULL,
+    notebook_id TEXT NOT NULL REFERENCES notebooks(id),
+    titular_tipo TEXT NOT NULL CHECK(titular_tipo IN ('app','agente')),
+    titular_id TEXT NOT NULL, titular_nombre TEXT NOT NULL, pid INTEGER,
+    vence_en TEXT NOT NULL, creado_en TEXT NOT NULL
+  ) STRICT;
+  CREATE INDEX bloqueos_vence ON bloqueos(vence_en);
+  CREATE TRIGGER intenciones_solo_agregar_u BEFORE UPDATE ON intenciones BEGIN SELECT RAISE(ABORT,'intenciones es de solo agregar'); END;
+  CREATE TRIGGER intenciones_solo_agregar_d BEFORE DELETE ON intenciones BEGIN SELECT RAISE(ABORT,'intenciones es de solo agregar'); END;
+  CREATE TRIGGER commits_solo_agregar_u BEFORE UPDATE ON commits BEGIN SELECT RAISE(ABORT,'commits es de solo agregar'); END;
+  CREATE TRIGGER commits_solo_agregar_d BEFORE DELETE ON commits BEGIN SELECT RAISE(ABORT,'commits es de solo agregar'); END;
+  CREATE TRIGGER escrituras_solo_agregar_u BEFORE UPDATE ON escrituras BEGIN SELECT RAISE(ABORT,'escrituras es de solo agregar'); END;
+  CREATE TRIGGER escrituras_solo_agregar_d BEFORE DELETE ON escrituras BEGIN SELECT RAISE(ABORT,'escrituras es de solo agregar'); END;
+`

@@ -112,7 +112,7 @@ test('migrar un índice anterior conserva identidades y recalcula el estado parc
   } finally { old.close() }
   const migrated = new BrainIndex(database)
   try {
-    expect((await migrated.status()).schemaVersion).toBe(3)
+    expect((await migrated.status()).schemaVersion).toBe(4)
     expect((await migrated.catalog()).items[0]).toMatchObject({ id: notebook.id, language: 'auto', detectedLanguage: null })
     expect((await migrated.sync(notebook.id)).status).toBe('partial')
     expect((await migrated.search({ query: 'enlaces' })).items[0].nodeId).toBe(hit.nodeId)
@@ -138,7 +138,7 @@ test('migrar del esquema 2 añade el idioma sin reindexar ni perder relaciones',
   } finally { old.close() }
   const migrated = new BrainIndex(database)
   try {
-    expect((await migrated.status()).schemaVersion).toBe(3)
+    expect((await migrated.status()).schemaVersion).toBe(4)
     expect((await migrated.search({ query: 'invoices' })).items[0].chunkId).toBe(hit.chunkId)
     expect((await migrated.sync(notebook.id)).changedFiles).toBe(0)
     expect((await migrated.catalog()).items[0]).toMatchObject({ id: notebook.id, language: 'auto', detectedLanguage: 'en' })

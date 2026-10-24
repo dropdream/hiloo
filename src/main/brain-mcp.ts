@@ -1,52 +1,23 @@
-import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { BrainSyncResult } from '../shared/brain'
-import { BrainIndex } from './brain'
-import { bounded } from './brain/output'
+import { ContextoMcp, configurar, type ConfiguracionMcp } from './mcp/contexto'
 
 // Adaptador fino sobre BrainIndex: misma lógica, límites y presupuestos que la CLI.
-const argv = process.argv.slice(2)
-const dbFlag = argv.indexOf('--db')
-if ((dbFlag >= 0 && !argv[dbFlag + 1]) || argv.length !== (dbFlag >= 0 ? 2 : 0)) {
-  process.stderr.write('Uso: brain-mcp [--db <ruta>]. HILOO_BRAIN_DB también selecciona la base.\n')
+// La configuración (base, agente, cuadernos con escritura) y los ayudantes viven en
+// mcp/contexto.ts; cada grupo de herramientas de la etapa 1 se registra abajo con una línea.
+let config: ConfiguracionMcp
+try {
+  config = configurar(process.argv.slice(2), process.env)
+} catch (error) {
+  process.stderr.write(error instanceof Error ? error.message : String(error))
   process.exit(2)
 }
-const directory = process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming')
-const dbPath = resolve((dbFlag >= 0 ? argv[dbFlag + 1] : undefined) ?? process.env.HILOO_BRAIN_DB ?? join(directory, 'hiloo', 'brain.sqlite'))
-
-let reader: BrainIndex | null = null
-// Se abre al primer uso: el servidor arranca aunque la base todavía no exista.
-function index(): BrainIndex {
-  if (reader) return reader
-  if (!existsSync(dbPath))
-    throw new Error(`No existe la base de Cerebro en ${dbPath}. Abre un cuaderno en hiloo o define HILOO_BRAIN_DB.`)
-  reader = new BrainIndex(dbPath, { readOnly: true })
-  return reader
-}
-
-async function requireNotebooks(): Promise<void> {
-  if (!(await index().catalog({ limit: 1 })).items.length)
-    throw new Error('No hay cuadernos registrados en Cerebro. Abre una carpeta como cuaderno en hiloo.')
-}
-
-function failure(error: unknown): CallToolResult {
-  const message = error instanceof Error ? error.message : 'No se pudo consultar Cerebro.'
-  return { content: [{ type: 'text', text: JSON.stringify({ error: message.slice(0, 400) }) }], isError: true }
-}
-
-async function respond(maxChars: number, action: () => Promise<unknown>): Promise<CallToolResult> {
-  try {
-    const { text, overflow } = bounded(await action(), maxChars, 'Aumenta maxChars o pide menos elementos.')
-    return { content: [{ type: 'text', text }], ...(overflow ? { isError: true } : {}) }
-  } catch (error) {
-    return failure(error)
-  }
-}
+const contexto = new ContextoMcp(config)
+const index = () => contexto.index()
+const requireNotebooks = () => contexto.requireNotebooks()
+const respond = contexto.respond.bind(contexto)
 
 const uuid = z.uuid()
 const sha256 = z.string().regex(/^[a-f\d]{64}$/i)
@@ -166,8 +137,7 @@ server.registerTool(
   },
   ({ notebook }) =>
     respond(syncBudget, async () => {
-      if (!existsSync(dbPath)) index()
-      const writer = new BrainIndex(dbPath)
+      const writer = contexto.writer()
       let result: BrainSyncResult
       try {
         result = await writer.sync(notebook)
